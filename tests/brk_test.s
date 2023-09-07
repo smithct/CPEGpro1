@@ -48,8 +48,8 @@ main:
     str x3, [x2]
     
     //verify that values can be retrieved
-    ldr x4, [x2,x5]
-    ldr x3, [x2]
+    ldur x4, [x2,x5]
+    ldur x3, [x2]
     //deallocate
     mov x0, x2
     mov x8,214

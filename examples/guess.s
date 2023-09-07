@@ -29,7 +29,7 @@ main:
     *    we won't be using these here
     * return val: # of bytes written to buffer
     *********************/
-    ldr x0, =num
+    ldur x0, =num
     mov x1, 8
     mov x8, 278
     svc 0
@@ -55,11 +55,11 @@ main:
     * num contains the address of the random
     * bytes we wrote earlier. To get the byte's
     * themselves we need to dereference the address,
-    * but we can't do ldr x6, [num] so we load it 
+    * but we can't do ldur x6, [num] so we load it
     * into a register first.
     ********************/
-    ldr  x6, =num
-    ldr  x4, [x6]
+    ldur  x6, =num
+    ldur  x4, [x6]
     
     /********************
     * Unsigned DIVide takes the form
@@ -84,8 +84,8 @@ main:
 gameLoop:
     /*write syscall*/
     mov x0, #1
-    ldr x1, =prompt
-    ldr x2, =plen
+    ldur x1, =prompt
+    ldur x2, =plen
     mov x8, 0x40
     svc 0
 
@@ -99,7 +99,7 @@ gameLoop:
     * call to read
     ***********************/
     mov x0, #1
-    ldr x1, =guess
+    ldur x1, =guess
     mov x2, 2
     mov x8, 0x3f
     svc 0
@@ -125,8 +125,8 @@ gameLoop:
     * ---------------------------
     *     0 0 0 0         1 1 0 1
     **********************/
-    ldr x6, =guess
-    ldr x4, [x6]
+    ldur x6, =guess
+    ldur x4, [x6]
     and x4, x4, 0xFF
     sub x4, x4, 48
     
@@ -152,8 +152,8 @@ gameLoop:
     *********************/
     /*write syscall*/
     mov x0, #1
-    ldr x1, =equal
-    ldr x2, =eLen
+    ldur x1, =equal
+    ldur x2, =eLen
     mov x8, 0x40
     svc 0
    /********************
@@ -165,16 +165,16 @@ gameLoop:
     .tooHigh:
       /*write syscall*/
       mov x0, #1
-      ldr x1, =guessHigh
-      ldr x2, =ghLen
+      ldur x1, =guessHigh
+      ldur x2, =ghLen
       mov x8, 0x40
       svc 0 
       b gameLoop
     .tooLow:
       /*write syscall*/
       mov x0, #1
-      ldr x1, =guessLow
-      ldr x2, =glLen
+      ldur x1, =guessLow
+      ldur x2, =glLen
       mov x8, 0x40
       svc 0 
       b gameLoop

@@ -31,8 +31,8 @@ main:
     * Print out prompt
     ***********************/
     mov x0, #1
-    ldr x1, =prompt
-    ldr x2, =plen
+    ldur x1, =prompt
+    ldur x2, =plen
     mov x8, 0x40
     svc 0
     
@@ -41,14 +41,14 @@ main:
     * Read 8 bytes maximum
     ***********************/
     mov x0, #1
-    ldr x1, =entry
+    ldur x1, =entry
     mov x2, 8
     mov x8, 0x3f
     svc 0
     
 
     mov x1, x0
-    ldr x0, =entry
+    ldur x0, =entry
    /***********************
     * Pointer to input is in x0
     * bytes entered is in x1 
@@ -80,28 +80,28 @@ main:
     * Load pointer to "steps" variable
     * and store result of int2str there
     ***********************/    
-    ldr x1, =steps
+    ldur x1, =steps
     str x0, [x1]
     
    /***********************
     * Print out "report" string
     ***********************/
     mov x0, #1
-    ldr x1, =report
-    ldr x2, =rlen
+    ldur x1, =report
+    ldur x2, =rlen
     mov x8, 0x40
     svc 0
    /***********************
     * Print out "steps" string
     ***********************/
     mov x0, #1
-    ldr x1, =steps
+    ldur x1, =steps
     mov x2, 8
     mov x8, 0x40
     svc 0
     
     //retrieve collatz steps to use as exit value
-    ldr x0, [sp, 8]
+    ldur x0, [sp, 8]
   exit:
     //restore stack
     add sp, sp, 16
@@ -155,7 +155,7 @@ str2int:
     endpow:
     
     //x3 holds ALL bytes of the string
-    ldr x3, [x0]
+    ldur x3, [x0]
  
     //we will accumulate the result in x5
     mov x5, 0

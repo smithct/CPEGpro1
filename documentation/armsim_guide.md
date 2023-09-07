@@ -39,12 +39,12 @@ These are the current supported instructions. The instruction formats comes from
     stp     rt, rt2, [rn, imm]
     stp     rt, rt2, [rn, imm]! //pre index
     stp     rt, rt2, [rn], imm  //post index
-    ldr     rd, =<var>
-    ldr     rt, [rn]
-    ldr     rt, [rn, imm]
-    ldr     rt, [rn, rm]
-    ldr     rt, [rn, imm]! //pre index
-    ldr     rt, [rn], imm  //post index
+    ldur     rd, =<var>
+    ldur     rt, [rn]
+    ldur     rt, [rn, imm]
+    ldur     rt, [rn, rm]
+    ldur     rt, [rn, imm]! //pre index
+    ldur     rt, [rn], imm  //post index
     str     rt, [rn]
     str     rt, [rn, imm]
     str     rt, [rn, rm]
@@ -98,7 +98,7 @@ These are the current supported instructions. The instruction formats comes from
 The debugger has been moved to a standalone program called armdb. See [the guide](armdb_guide.md) for usage instructions
 -----
 ## REPL
-There is a simple repl interface available for armsim that can be used to test out individual instructions or sequence of instructions. Currently it does not allow you to use any memory accessing instructions (such as ldr or str) but all instructions that only affect registers should work. Launch the repl by running `python armsim.py` with no files listed 
+There is a simple repl interface available for armsim that can be used to test out individual instructions or sequence of instructions. Currently it does not allow you to use any memory accessing instructions (such as ldur or str) but all instructions that only affect registers should work. Launch the repl by running `python armsim.py` with no files listed 
 -----
 ## armsim As a Library
 armsim can be imported into another python program to be configured and executed programmatically (for use in an autograder, for example). See [this](armsim_lib.md) document for instructions on how to do so.

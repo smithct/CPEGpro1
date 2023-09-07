@@ -6,17 +6,17 @@ _start:
 main:
     
     
-    ldr x0, =array
-    ldr x1, =array_len
+    ldur x0, =array
+    ldur x1, =array_len
     bl sort
-    ldr x0, =sorted
-    ldr x1, =array_len
+    ldur x0, =sorted
+    ldur x1, =array_len
     bl sort
-    ldr x0, =reverse
-    ldr x1, =array_len
+    ldur x0, =reverse
+    ldur x1, =array_len
     bl sort
-    ldr x0, =nearly_sorted
-    ldr x1, =array_len
+    ldur x0, =nearly_sorted
+    ldur x1, =array_len
     bl sort
     
     //put a breakpoint here and examine array; it should be sorted
@@ -63,7 +63,7 @@ sort:
     .loop:
     
         //x ← A[i]
-        ldr x4, [x0, x2]
+        ldur x4, [x0, x2]
         
         //j ← i - 1
         subs x3, x2, 8
@@ -74,7 +74,7 @@ sort:
             bpl .true
             b .end
             .true:
-            ldr x5, [x0, x3]
+            ldur x5, [x0, x3]
             cmp x5, x4
             ble .end
             

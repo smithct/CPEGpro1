@@ -56,12 +56,12 @@ Currently supported:
     stp     rt, rt2, [rn, imm]
     stp     rt, rt2, [rn, imm]! //pre index
     stp     rt, rt2, [rn], imm  //post index
-    ldr     rd, =<var>
-    ldr     rt, [rn]
-    ldr     rt, [rn, imm]
-    ldr     rt, [rn, rm]
-    ldr     rt, [rn, imm]! //pre index
-    ldr     rt, [rn], imm  //post index
+    ldur     rd, =<var>
+    ldur     rt, [rn]
+    ldur     rt, [rn, imm]
+    ldur     rt, [rn, rm]
+    ldur     rt, [rn, imm]! //pre index
+    ldur     rt, [rn], imm  //post index
     str     rt, [rn]
     str     rt, [rn, imm]
     str     rt, [rn, rm]
@@ -575,17 +575,17 @@ def execute(line:str):
             raise ValueError("register {} points to out of bounds memory".format(reg[rn]))
         return
     '''
-    ldr instructions
+    ldur instructions
     '''
-    #ldr rt, =<var>
-    if(re.match('ldr {},={}$'.format(rg,var),line)):
+    #ldur rt, =<var>
+    if(re.match('ldur {},={}$'.format(rg,var),line)):
         rt = re.findall(rg,line)[0]
         v = re.findall('='+var,line)[0][1:]
         reg[rt] = sym_table[v]
         return
-    #ldr rt, [rn]
+    #ldur rt, [rn]
     #dollar sign so it doesn't match post index
-    if(re.match('ldr {},\[{}\]$'.format(rg,rg),line)):
+    if(re.match('ldur {},\[{}\]$'.format(rg,rg),line)):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
         addr = reg[rn]
@@ -595,9 +595,9 @@ def execute(line:str):
         #load 8 bytes starting at addr and convert to int
         reg[rt] = int.from_bytes(bytes(mem[addr:addr+8]),'little')
         return
-    #ldr rt, [rn, imm]
+    #ldur rt, [rn, imm]
     #dollar sign so it doesn't match pre index
-    if(re.match('ldr {},\[{},{}\]$'.format(rg,rg,num),line)):
+    if(re.match('ldur {},\[{},{}\]$'.format(rg,rg,num),line)):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
         imm = int(re.findall(num,line)[-1],0)
@@ -608,9 +608,9 @@ def execute(line:str):
         #load 8 bytes starting at addr and convert to int
         reg[rt] = int.from_bytes(bytes(mem[addr:addr+8]),'little')
         return
-    #ldr rt, [rn, rm]
+    #ldur rt, [rn, rm]
     #dollar sign so it doesn't match pre index
-    if(re.match('ldr {},\[{},{}\]$'.format(rg,rg,rg),line)):
+    if(re.match('ldur {},\[{},{}\]$'.format(rg,rg,rg),line)):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
         rm = re.findall(rg,line)[2]
@@ -621,8 +621,8 @@ def execute(line:str):
         #load 8 bytes starting at addr and convert to int
         reg[rt] = int.from_bytes(bytes(mem[addr:addr+8]),'little')
         return
-    #ldr rt, [rn, imm]! //pre index
-    if(re.match('ldr {},\[{},{}\]!'.format(rg,rg,num),line)):
+    #ldur rt, [rn, imm]! //pre index
+    if(re.match('ldur {},\[{},{}\]!'.format(rg,rg,num),line)):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
         imm = int(re.findall(num,line)[-1],0)
@@ -634,8 +634,8 @@ def execute(line:str):
         #load 8 bytes starting at addr and convert to int
         reg[rt] = int.from_bytes(bytes(mem[addr:addr+8]),'little')
         return
-    #ldr rt, [rn], imm //post index
-    if(re.match('ldr {},\[{}\],{}$'.format(rg,rg,num),line)):
+    #ldur rt, [rn], imm //post index
+    if(re.match('ldur {},\[{}\],{}$'.format(rg,rg,num),line)):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
         imm = int(re.findall(num,line)[-1],0)

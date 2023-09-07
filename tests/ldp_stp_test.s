@@ -7,7 +7,7 @@ main:
     //setup
     mov x0, 2
     mov x1, 5
-    ldr x2, =data
+    ldur x2, =data
     
     //stp/ldp 
     stp x0, x1, [x2]

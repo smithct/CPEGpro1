@@ -36,8 +36,8 @@ main:
      *    here it's the length of prompt
      *********************/
     mov x0, #1
-    ldr x1, =prompt
-    ldr x2, =plen
+    ldur x1, =prompt
+    ldur x2, =plen
     mov x8, 0x40
     svc 0
     
@@ -53,8 +53,8 @@ main:
      *    here it's the length of message
      *********************/
     mov x0, #1
-    ldr x1, =buffer
-    ldr x2, =bufSize
+    ldur x1, =buffer
+    ldur x2, =bufSize
     mov x8, 0x3f
     svc 0
     /*******************
@@ -72,14 +72,14 @@ main:
      * Write syscalls 
      *********************/
     mov x0, #1
-    ldr x1, =greeting
-    ldr x2, =glen
+    ldur x1, =greeting
+    ldur x2, =glen
     mov x8, 0x40
     svc 0
 
 
     mov x0, #1
-    ldr x1, =buffer
+    ldur x1, =buffer
     /********************
      * Remember that we stored the bytes entered
      * in x4

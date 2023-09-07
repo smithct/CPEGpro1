@@ -54,8 +54,8 @@ main:
      * Write syscall
      *********************/ 
     mov x0, #1
-    ldr x1, =message
-    ldr x2, =len
+    ldur x1, =message
+    ldur x2, =len
     mov x8, 0x40
     svc 0
     /********************
