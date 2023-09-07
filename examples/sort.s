@@ -80,7 +80,7 @@ sort:
             
             //A[j+1] ← A[j]
             add x6, x3, 8
-            str x5, [x0, x6]
+            stur x5, [x0, x6]
             
             //j ← j - 1
             subs x3, x3, 8
@@ -90,7 +90,7 @@ sort:
          
         //A[j+1] ← x
         add x6, x3, 8
-        str x4, [x0, x6]
+        stur x4, [x0, x6]
              
         //i ← i + 1
         add x2, x2, 8

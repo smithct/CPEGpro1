@@ -70,7 +70,7 @@ main:
     bl collatz
     
     //save collatz steps value on stack
-    str x0, [sp, 8]
+    stur x0, [sp, 8]
     
     bl int2str
     
@@ -81,7 +81,7 @@ main:
     * and store result of int2str there
     ***********************/    
     ldur x1, =steps
-    str x0, [x1]
+    stur x0, [x1]
     
    /***********************
     * Print out "report" string

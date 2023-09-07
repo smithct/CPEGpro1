@@ -28,10 +28,10 @@ armsim.run()
 assert armsim.reg['x0'] == 7, "ldp_stp_test returned incorrect value of {}".format(armsim.reg['x0'])
 armsim.reset()
 
-with open('tests/ldur_str_test.s','r') as f:
+with open('tests/ldur_stur_test.s','r') as f:
 	armsim.parse(f.readlines())
 armsim.run()
-assert armsim.reg['x0'] == 7, "ldur_str_test returned incorrect value of {}".format(armsim.reg['x0'])
+assert armsim.reg['x0'] == 7, "ldur_stur_test returned incorrect value of {}".format(armsim.reg['x0'])
 armsim.reset()
 
 with open('tests/brk_test.s','r') as f:

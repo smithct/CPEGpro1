@@ -62,11 +62,11 @@ Currently supported:
     ldur     rt, [rn, rm]
     ldur     rt, [rn, imm]! //pre index
     ldur     rt, [rn], imm  //post index
-    str     rt, [rn]
-    str     rt, [rn, imm]
-    str     rt, [rn, rm]
-    str     rt, [rn, imm]! //pre index
-    str     rt, [rn], imm  //post index
+    stur     rt, [rn]
+    stur     rt, [rn, imm]
+    stur     rt, [rn, rm]
+    stur     rt, [rn, imm]! //pre index
+    stur     rt, [rn], imm  //post index
     mov     rd, imm
     mov     rd, rn
     sub{s}  rd, rn, imm
@@ -651,11 +651,11 @@ def execute(line:str):
             raise ValueError("register {} points to out of bounds memory".format(reg[rn]))
         return
     '''
-    str instructions
+    stur instructions
     '''
-    #str rt, [rn]
+    #stur rt, [rn]
     #dollar sign so it doesn't match post index
-    if(re.match('str {},\[{}\]$'.format(rg,rg),line)):
+    if(re.match('stur {},\[{}\]$'.format(rg,rg),line)):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
         addr = reg[rn]
@@ -664,9 +664,9 @@ def execute(line:str):
             raise ValueError("out of bounds memory access: {}".format(line))
         mem[addr:addr+8] = list(int.to_bytes((reg[rt]),8,'little'))
         return       
-    #str rt, [rn, imm]
+    #stur rt, [rn, imm]
     #dollar sign so it doesn't match pre index
-    if(re.match('str {},\[{},{}\]$'.format(rg,rg,num),line)):
+    if(re.match('stur {},\[{},{}\]$'.format(rg,rg,num),line)):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
         imm = int(re.findall(num,line)[-1],0)
@@ -676,9 +676,9 @@ def execute(line:str):
             raise ValueError("out of bounds memory access: {}".format(line))
         mem[addr:addr+8] = list(int.to_bytes((reg[rt]),8,'little'))
         return    
-    #str rt, [rn, rm]
+    #stur rt, [rn, rm]
     #dollar sign so it doesn't match pre index
-    if(re.match('str {},\[{},{}\]$'.format(rg,rg,rg),line)):
+    if(re.match('stur {},\[{},{}\]$'.format(rg,rg,rg),line)):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
         rm = re.findall(rg,line)[2]
@@ -688,8 +688,8 @@ def execute(line:str):
             raise ValueError("out of bounds memory access: {}".format(line))
         mem[addr:addr+8] = list(int.to_bytes((reg[rt]),8,'little'))
         return
-    #str rt, [rn, imm]! //pre index
-    if(re.match('str {},\[{},{}\]!$'.format(rg,rg,num),line)):
+    #stur rt, [rn, imm]! //pre index
+    if(re.match('stur {},\[{},{}\]!$'.format(rg,rg,num),line)):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
         imm = int(re.findall(num,line)[-1],0)
@@ -700,8 +700,8 @@ def execute(line:str):
             raise ValueError("out of bounds memory access: {}".format(line))
         mem[addr:addr+8] = list(int.to_bytes((reg[rt]),8,'little'))
         return 
-    #str rt, [rn], imm //post index
-    if(re.match('str {},\[{}\],{}$'.format(rg,rg,num),line)):
+    #stur rt, [rn], imm //post index
+    if(re.match('stur {},\[{}\],{}$'.format(rg,rg,num),line)):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
         imm = int(re.findall(num,line)[-1],0)

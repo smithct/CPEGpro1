@@ -11,24 +11,24 @@ main:
     //use x4 as offset register
     mov x4, 0x10
     
-    //str/ldur
-    str x0, [x2]
+    //stur/ldur
+    stur x0, [x2]
     ldur x0, [x2]
-    //str/ldur imm offset
-    str x0, [x2, 0x10]
+    //stur/ldur imm offset
+    stur x0, [x2, 0x10]
     ldur x0, [x2, 0x10]
-    //str/ldur reg offset
-    str x0, [x2, x4]
+    //stur/ldur reg offset
+    stur x0, [x2, x4]
     ldur x0, [x2, x4]
     
-    //str/ldur pre/post indexing
+    //stur/ldur pre/post indexing
     mov x3, x2
-    str x0, [x2, 8]!
-    str x1, [x2, 8]!
+    stur x0, [x2, 8]!
+    stur x1, [x2, 8]!
     ldur x1, [x2], -8
     ldur x0, [x2], -8
-    str x0, [x2], 8
-    str x1, [x2], 8
+    stur x0, [x2], 8
+    stur x1, [x2], 8
     ldur x1, [x2, -8]!
     ldur x0, [x2, -8]!
     //x2 should be back to original

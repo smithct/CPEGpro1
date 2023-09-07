@@ -43,9 +43,9 @@ main:
     mov x3, 3
     //store 4 at the last 8 bytes of the page
     mov x5, 0xff8
-    str x4, [x2, x5]
+    stur x4, [x2, x5]
     //store 3 at the first 8 bytes of the page
-    str x3, [x2]
+    stur x3, [x2]
     
     //verify that values can be retrieved
     ldur x4, [x2,x5]
