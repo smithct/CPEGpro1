@@ -1,5 +1,5 @@
 .data
-	numbers: .8byte 9, 8, 2, 3, 6
+	numbers: .dword 9, 8, 2, 3, 6
 
 .text
     .global _start

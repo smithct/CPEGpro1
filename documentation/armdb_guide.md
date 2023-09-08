@@ -16,7 +16,7 @@ A simple debugger interface for armsim. To run: `python armdb.py <program>.s` Th
         Display the memory contents pointed at by the variable. Output depends
         on the directive the variable was declared with:
         asciz : list of chars
-        8byte : list of 8 byte integers
+        dword : list of 8 byte integers
         space : list of bytes
         =     : integer value of variable
     q:

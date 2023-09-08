@@ -34,7 +34,7 @@ Currently supported:
   Directives:
     .data    (declare a region of initialized data)
         .asciz   (declare a string in the .data section)
-        .8byte   (declare an array of 8 bytes words in the .data section)
+        .dword   (declare an array of [8 bytes] dwords in the .data section)
         =        (assignment of a variable to a constant value within the .data section)
         = . -      (find the length of the previously declared item within the .data section)
     .bss     (declare a region of unitialized data)
@@ -200,7 +200,7 @@ vars declared with = will be literals
 Additionally the directive type will be stored in the following way:
 -an key in the form <var>_TYPE_ will map to
 0 -> asciz
-1 -> 8byte
+1 -> dword
 2 -> space
 NB. vars declared with = (ie length variables) are just stored in
 sym_table as numbers, so they don't have a type
@@ -348,13 +348,13 @@ def parse(lines)->None:
                 continue    
                 
             '''
-            The .8byte directive is followed by a comma separated list
+            The .dword directive is followed by a comma separated list
             of numbers. Each number will be an 8 byte entry in mem.
             Additionally, the _SIZE_ shadow entry will be created
             '''
-            if(re.match('.*:\.8byte.*',line)):
+            if(re.match('.*:\.dword.*',line)):
                 line = line.lower()
-                line = line.split(":.8byte ")
+                line = line.split(":.dword ")
                 numbers = list(map(int, line[1].split(',')))
                 #each number is 8 bytes
                 size = len(numbers) * 8
@@ -1082,7 +1082,7 @@ and returns the data (always as a list)at that address in a format
 that makes sense according to the directive type. The directive type
 was stored in sym_table during the parse stage:
 0 -> asciz
-1 -> 8byte
+1 -> dword
 2 -> space
 Since the size of each variable is stored we can print out all data
 
@@ -1095,7 +1095,7 @@ returns the list
 ['h','e','l','l','o',' ','w','o','r','l','d','\n']
 
 Given
-array: .8byte 89,80,83,88,86,82,87,81,84,85
+array: .dword 89,80,83,88,86,82,87,81,84,85
 get_data('array')
 returns the list
 [89,80,83,88,86,82,87,81,84,85]
@@ -1120,7 +1120,7 @@ def getdata(variable:str):
         #asciz
         if(sym_table[variable+'_TYPE_'] == 0):
             return list(bytes(mem[index:index+size]).decode('ascii'))
-        #8byte
+        #dword
         elif(sym_table[variable+'_TYPE_'] == 1):
             lst = []
             for i in range(0,size,8):
