@@ -35,6 +35,9 @@ Currently supported:
     .data    (declare a region of initialized data)
         .asciz   (declare a string in the .data section)
         .dword   (declare an array of [8 bytes] dwords in the .data section)
+        .word    (declare an array of [4 bytes] words in the .data section)
+        .hword   (declare an array of [2 bytes] half words in the .data section)
+        .byte    (declare an array of bytes in the .data section)
         =        (assignment of a variable to a constant value within the .data section)
         = . -      (find the length of the previously declared item within the .data section)
     .bss     (declare a region of unitialized data)
@@ -202,6 +205,9 @@ Additionally the directive type will be stored in the following way:
 0 -> asciz
 1 -> dword
 2 -> space
+3 -> hword
+4 -> word
+5 -> byte
 NB. vars declared with = (ie length variables) are just stored in
 sym_table as numbers, so they don't have a type
 Types are stored primarily for the get_data procedure
@@ -365,7 +371,68 @@ def parse(lines)->None:
                 sym_table[line[0]+"_SIZE_"] = size
                 sym_table[line[0]+"_TYPE_"] = 1 
                 index+=size 
-                continue            
+                continue
+
+            '''
+            The .word directive is followed by a comma separated list
+            of numbers. Each number will be a 4 byte entry in mem.
+            Additionally, the _SIZE_ shadow entry will be created
+            '''
+            if (re.match('.*:\.word.*', line)):
+                line = line.lower()
+                line = line.split(":.word ")
+                numbers = list(map(int, line[1].split(',')))
+                # each number is 4 bytes
+                size = len(numbers) * 4
+                for n in numbers:
+                    mem.extend(list(int.to_bytes(n, 4, 'little')))
+
+                sym_table[line[0]] = index
+                sym_table[line[0] + "_SIZE_"] = size
+                sym_table[line[0] + "_TYPE_"] = 3
+                index += size
+                continue
+
+            '''
+            The .hword directive is followed by a comma separated list
+            of numbers. Each number will be a 2 byte entry in mem.
+            Additionally, the _SIZE_ shadow entry will be created
+            '''
+            if (re.match('.*:\.hword.*', line)):
+                line = line.lower()
+                line = line.split(":.hword ")
+                numbers = list(map(int, line[1].split(',')))
+                # each number is 2 bytes
+                size = len(numbers) * 2
+                for n in numbers:
+                    mem.extend(list(int.to_bytes(n, 2, 'little')))
+
+                sym_table[line[0]] = index
+                sym_table[line[0] + "_SIZE_"] = size
+                sym_table[line[0] + "_TYPE_"] = 4
+                index += size
+                continue
+
+            '''
+            The .byte directive is followed by a comma separated list
+            of numbers. Each number will be a 1 byte entry in mem.
+            Additionally, the _SIZE_ shadow entry will be created
+            '''
+            if (re.match('.*:\.byte.*', line)):
+                line = line.lower()
+                line = line.split(":.byte ")
+                numbers = list(map(int, line[1].split(',')))
+                # each number is 1 bytes
+                size = len(numbers)
+                for n in numbers:
+                    mem.extend(list(int.to_bytes(n, 1, 'little')))
+
+                sym_table[line[0]] = index
+                sym_table[line[0] + "_SIZE_"] = size
+                sym_table[line[0] + "_TYPE_"] = 5
+                index += size
+                continue
+
             '''
             If using the len=.-str idiom to store str length, we
             lookup the length of str that we stored in sym_table
@@ -1084,6 +1151,9 @@ was stored in sym_table during the parse stage:
 0 -> asciz
 1 -> dword
 2 -> space
+3 -> hword
+4 -> word
+5 -> byte
 Since the size of each variable is stored we can print out all data
 
 Examples:
@@ -1129,6 +1199,24 @@ def getdata(variable:str):
         #space
         elif(sym_table[variable+'_TYPE_'] == 2):
             return list(bytes(mem[index:index+size]))
+        #word
+        elif(sym_table[variable+'_TYPE_'] == 3):
+            lst = []
+            for i in range(0, size, 4):
+                lst.append(int.from_bytes(bytes(mem[index + i:index + i + 4]), 'little'))
+            return lst
+        #hword
+        elif(sym_table[variable+'_TYPE_'] == 4):
+            lst = []
+            for i in range(0, size, 2):
+                lst.append(int.from_bytes(bytes(mem[index + i:index + i + 2]), 'little'))
+            return lst
+        #byte
+        elif (sym_table[variable + '_TYPE_'] == 5):
+            lst = []
+            for i in range(0, size, 1):
+                lst.append(int.from_bytes(bytes(mem[index + i:index + i + 1]), 'little'))
+            return lst
         else:
             print(variable+': variable not found')
     else:
