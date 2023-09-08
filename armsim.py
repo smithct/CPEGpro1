@@ -794,6 +794,69 @@ def execute(line:str):
         if(reg[rn] > len(mem) and reg[rn] < reg['sp']):
             raise ValueError("register {} points to out of bounds memory".format(reg[rn]))
         return
+    '''sturb instruction'''
+    #sturb rt, [rn]
+    #dollar sign so it doesn't match post index
+    if(re.match('sturb {},\[{}\]$'.format(rg,rg),line)):
+        rt = re.findall(rg,line)[0]
+        rn = re.findall(rg,line)[1]
+        addr = reg[rn]
+        #check for out of bounds mem access
+        if(addr < reg['sp'] or addr > len(mem) - 1):
+            raise ValueError("out of bounds memory access: {}".format(line))
+        mem[addr:addr+1] = list(int.to_bytes((reg[rt]),1,'little'))
+        return
+    #sturb rt, [rn, imm]
+    #dollar sign so it doesn't match pre index
+    if(re.match('sturb {},\[{},{}\]$'.format(rg,rg,num),line)):
+        rt = re.findall(rg,line)[0]
+        rn = re.findall(rg,line)[1]
+        imm = int(re.findall(num,line)[-1],0)
+        addr = reg[rn] + imm
+        #check for out of bounds mem access
+        if(addr < reg['sp'] or addr > len(mem) - 1):
+            raise ValueError("out of bounds memory access: {}".format(line))
+        mem[addr:addr+1] = list(int.to_bytes((reg[rt]),1,'little'))
+        return
+    #sturb rt, [rn, rm]
+    #dollar sign so it doesn't match pre index
+    if(re.match('sturb {},\[{},{}\]$'.format(rg,rg,rg),line)):
+        rt = re.findall(rg,line)[0]
+        rn = re.findall(rg,line)[1]
+        rm = re.findall(rg,line)[2]
+        addr = reg[rn] + reg[rm]
+        #check for out of bounds mem access
+        if(addr < reg['sp'] or addr > len(mem) - 1):
+            raise ValueError("out of bounds memory access: {}".format(line))
+        mem[addr:addr+1] = list(int.to_bytes((reg[rt]),1,'little'))
+        return
+    #sturb rt, [rn, imm]! //pre index
+    if(re.match('sturb {},\[{},{}\]!$'.format(rg,rg,num),line)):
+        rt = re.findall(rg,line)[0]
+        rn = re.findall(rg,line)[1]
+        imm = int(re.findall(num,line)[-1],0)
+        reg[rn] += imm
+        addr = reg[rn]
+        #check for out of bounds mem access
+        if(addr < reg['sp'] or addr > len(mem) - 1):
+            raise ValueError("out of bounds memory access: {}".format(line))
+        mem[addr:addr+1] = list(int.to_bytes((reg[rt]),1,'little'))
+        return
+    #stur rt, [rn], imm //post index
+    if(re.match('sturb {},\[{}\],{}$'.format(rg,rg,num),line)):
+        rt = re.findall(rg,line)[0]
+        rn = re.findall(rg,line)[1]
+        imm = int(re.findall(num,line)[-1],0)
+        addr = reg[rn]
+        #check for out of bounds mem access
+        if(addr < reg['sp'] or addr > len(mem) - 1):
+            raise ValueError("out of bounds memory access: {}".format(line))
+        mem[addr:addr+1] = list(int.to_bytes((reg[rt]),1,'little'))
+        reg[rn] += imm
+        #check for out of bounds pointer
+        if(reg[rn] > len(mem) and reg[rn] < reg['sp']):
+            raise ValueError("register {} points to out of bounds memory".format(reg[rn]))
+        return
     '''
     stur instructions
     '''
