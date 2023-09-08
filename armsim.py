@@ -59,17 +59,26 @@ Currently supported:
     stp     rt, rt2, [rn, imm]
     stp     rt, rt2, [rn, imm]! //pre index
     stp     rt, rt2, [rn], imm  //post index
-    ldur     rd, =<var>
-    ldur     rt, [rn]
-    ldur     rt, [rn, imm]
-    ldur     rt, [rn, rm]
-    ldur     rt, [rn, imm]! //pre index
-    ldur     rt, [rn], imm  //post index
-    stur     rt, [rn]
-    stur     rt, [rn, imm]
-    stur     rt, [rn, rm]
-    stur     rt, [rn, imm]! //pre index
-    stur     rt, [rn], imm  //post index
+    ldurb   rt, [rn]
+    ldurb   rt, [rn, imm]
+    ldurb   rt, [rn, imm]! //pre index
+    ldurb   rt  [rn], imm  //post index
+    ldur    rd, =<var>
+    ldur    rt, [rn]
+    ldur    rt, [rn, imm]
+    ldur    rt, [rn, rm]
+    ldur    rt, [rn, imm]! //pre index
+    ldur    rt, [rn], imm  //post index
+    sturb   rt, [rn]
+    sturb   rt, [rn, imm]
+    sturb   rt, [rn, rm]
+    sturb   rt, [rn, imm]! //pre index
+    sturb   rt, [rn], imm  //post index
+    stur    rt, [rn]
+    stur    rt, [rn, imm]
+    stur    rt, [rn, rm]
+    stur    rt, [rn, imm]! //pre index
+    stur    rt, [rn], imm  //post index
     mov     rd, imm
     mov     rd, rn
     sub{s}  rd, rn, imm
@@ -636,6 +645,74 @@ def execute(line:str):
         mem[addr:addr+8] = list(int.to_bytes((reg[rt]),8,'little'))
         addr += 8
         mem[addr:addr+8] = list(int.to_bytes((reg[rt2]),8,'little'))
+        reg[rn] += imm
+        #check for out of bounds pointer
+        if(reg[rn] > len(mem) and reg[rn] < reg['sp']):
+            raise ValueError("register {} points to out of bounds memory".format(reg[rn]))
+        return
+    '''ldurb instructions'''
+    #ldurb rt, [rn]
+    #dollar sign so it doesn't match post index
+    if(re.match('ldurb {},\[{}\]$'.format(rg,rg),line)):
+        rt = re.findall(rg,line)[0]
+        rn = re.findall(rg,line)[1]
+        addr = reg[rn]
+        #check for out of bounds mem access
+        if(addr < reg['sp'] or addr > len(mem) - 1):
+            raise ValueError("out of bounds memory access: {}".format(line))
+        #load 1 bytes starting at addr and convert to int
+        reg[rt] = int.from_bytes(bytes(mem[addr:addr+1]),'little')
+        return
+    #ldurb rt, [rn, imm]
+    #dollar sign so it doesn't match pre index
+    if(re.match('ldurb {},\[{},{}\]$'.format(rg,rg,num),line)):
+        rt = re.findall(rg,line)[0]
+        rn = re.findall(rg,line)[1]
+        imm = int(re.findall(num,line)[-1],0)
+        addr = reg[rn] + imm
+        #check for out of bounds mem access
+        if(addr < reg['sp'] or addr > len(mem) - 1):
+            raise ValueError("out of bounds memory access: {}".format(line))
+        #load 1 byte starting at addr and convert to int
+        reg[rt] = int.from_bytes(bytes(mem[addr:addr+1]),'little')
+        return
+    #ldurb rt, [rn, rm]
+    #dollar sign so it doesn't match pre index
+    if(re.match('ldurb {},\[{},{}\]$'.format(rg,rg,rg),line)):
+        rt = re.findall(rg,line)[0]
+        rn = re.findall(rg,line)[1]
+        rm = re.findall(rg,line)[2]
+        addr = reg[rn] + reg[rm]
+        #check for out of bounds mem access
+        if(addr < reg['sp'] or addr > len(mem) - 1):
+            raise ValueError("out of bounds memory access: {}".format(line))
+        #load 1 byte starting at addr and convert to int
+        reg[rt] = int.from_bytes(bytes(mem[addr:addr+1]),'little')
+        return
+    #ldurb rt, [rn, imm]! //pre index
+    if(re.match('ldurb {},\[{},{}\]!'.format(rg,rg,num),line)):
+        rt = re.findall(rg,line)[0]
+        rn = re.findall(rg,line)[1]
+        imm = int(re.findall(num,line)[-1],0)
+        reg[rn] += imm
+        addr = reg[rn]
+        #check for out of bounds mem access
+        if(addr < reg['sp'] or addr > len(mem) - 1):
+            raise ValueError("out of bounds memory access: {}".format(line))
+        #load 1 byte starting at addr and convert to int
+        reg[rt] = int.from_bytes(bytes(mem[addr:addr+1]),'little')
+        return
+    #ldurb rt, [rn], imm //post index
+    if(re.match('ldurb {},\[{}\],{}$'.format(rg,rg,num),line)):
+        rt = re.findall(rg,line)[0]
+        rn = re.findall(rg,line)[1]
+        imm = int(re.findall(num,line)[-1],0)
+        addr = reg[rn]
+        #check for out of bounds mem access
+        if(addr < reg['sp'] or addr > len(mem) - 1):
+            raise ValueError("out of bounds memory access: {}".format(line))
+        #load 1 byte starting at addr and convert to int
+        reg[rt] = int.from_bytes(bytes(mem[addr:addr+1]),'little')
         reg[rn] += imm
         #check for out of bounds pointer
         if(reg[rn] > len(mem) and reg[rn] < reg['sp']):
