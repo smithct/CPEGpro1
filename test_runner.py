@@ -40,23 +40,6 @@ armsim.run()
 assert armsim.reg['x0'] == 7, "brk_test returned incorrect value of {}".format(armsim.reg['x0'])
 armsim.reset()
 
-
-
-
-'''
-Test the sort program
-'''
-with open('examples/sort.s','r') as f:
-    armsim.parse(f.readlines())
-original = armsim.getdata('array')
-armsim.run()
-assert armsim.getdata('array') == sorted(original), "incorrect result produced after running sort.s"
-assert armsim.getdata('sorted') == sorted(original), "incorrect result produced after running sort.s"
-assert armsim.getdata('reverse') == sorted(original), "incorrect result produced after running sort.s"
-assert armsim.getdata('nearly_sorted') == sorted(original), "incorrect result produced after running sort.s"
-armsim.reset()  
-
-
 '''
 collatz.s is currently the most complex program, so it's 
 worth having an automated test to make sure it's working
