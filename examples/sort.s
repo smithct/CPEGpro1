@@ -50,6 +50,7 @@ for2tst:
 	b for2tst
 
 exit2:
+	mov x1, x22
 	add x19, x19, #1
 	b for1tst
 
