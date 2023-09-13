@@ -99,9 +99,9 @@ procedure to print a list of separated registers on a single line,
 followed by a newline after the last one. Used to print used registers
 with the p command or monitored registers.
 '''
-def print_regs(reg_list):
+def print_regs(reg_list, transform=int):
     for r in reg_list:
-        print("{}: {}".format(r, armsim.reg[r]), end=' | ')
+        print("{}: {}".format(r, transform(armsim.reg[r])), end=' | ')
     if(reg_list):
         print()
         
@@ -151,8 +151,14 @@ def main():
             
         #command switch statement
         if(cmd == 'p'):
-            print_regs(used_regs)    
+            print_regs(used_regs)
             print("Z: {} N: {}".format(armsim.z_flag,armsim.n_flag))
+        elif (cmd == 'phex'):
+            print_regs(used_regs, transform=hex)
+            print("Z: {} N: {}".format(armsim.z_flag, armsim.n_flag))
+        elif (cmd == 'pbin'):
+            print_regs(used_regs, transform=bin)
+            print("Z: {} N: {}".format(armsim.z_flag, armsim.n_flag))
         elif(cmd.startswith('stk')):
             numList = re.findall('[0-9]+',cmd)
             print("SP: {}".format(hex((reg['sp']))))
