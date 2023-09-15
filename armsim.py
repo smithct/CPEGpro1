@@ -1094,6 +1094,13 @@ def execute(line:str):
         imm = int(re.findall(num,line)[-1],0)
         reg[rd] = reg[rn] << imm
         return
+    # lsl rd, rn, rm
+    if (re.match('lsl {},{},{}$'.format(rg, rg, rg), line)):
+        rd = re.findall(rg, line)[0]
+        rn = re.findall(rg, line)[1]
+        rm = re.findall(rg, line)[2]
+        reg[rd] = reg[rn] << reg[rm]
+        return
     #add{s} rd, rn, imm
     if(re.match('adds? {},{},{}$'.format(rg,rg,num),line)):
         rd = re.findall(rg,line)[0]
