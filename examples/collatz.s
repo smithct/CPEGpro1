@@ -191,7 +191,7 @@ str2int:
     * sp <- sp + 16 
     ***********************/
     ldp fp, lr, [sp], #16
-    ret
+    br lr
 /*************************
  * Algorithm:
  * Divide number by 10 and convert remainder
@@ -240,7 +240,7 @@ str2int:
     //return result
     mov x0, x4
     ldp fp, lr, [sp], #16
-    ret
+    br lr
     
  
     
@@ -282,7 +282,7 @@ collatz:
     add x0, x0, 1
   terminate:
     ldp fp, lr, [sp], #16
-    ret
+    br lr
         
        
 

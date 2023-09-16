@@ -19,7 +19,7 @@ swap:
 	ldur x11, [x10, #8]
 	stur x11, [x10, #0]
 	stur x9, [x10, #8]
-	ret
+	br lr
 
 sort:
 	sub sp, sp, #32
@@ -60,6 +60,6 @@ exit1:
 	ldur x21, [sp, #16]
 	ldur lr, [sp, #24]
 	add sp, sp, #32
-	ret
+	br lr
 
 

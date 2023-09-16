@@ -159,6 +159,8 @@ def main():
         elif (cmd == 'pbin'):
             print_regs(used_regs, transform=bin)
             print("Z: {} N: {}".format(armsim.z_flag, armsim.n_flag))
+        elif (cmd == 'pmem'):
+            print(len(armsim.mem))
         elif(cmd.startswith('stk')):
             numList = re.findall('[0-9]+',cmd)
             print("SP: {}".format(hex((reg['sp']))))

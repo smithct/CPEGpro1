@@ -119,7 +119,7 @@ Currently supported:
     b.mi    <label>
     b.pl    <label>
     bl      <label>
-    ret
+    br lr
     svc 0   
 
     
@@ -1087,26 +1087,60 @@ def execute(line:str):
         imm = int(re.findall(num,line)[-1],0)
         reg[rd] = reg[rn] >> imm
         return
-    # asr rd, rn, imm
+    # asr rd, rn, rm
     if (re.match('asr {},{},{}$'.format(rg, rg, num), line)):
         rd = re.findall(rg, line)[0]
         rn = re.findall(rg, line)[1]
         rm = re.findall(rg, line)[2]
         reg[rd] = reg[rn] >> reg[rm]
         return
+    # lsr rd, rn, imm
+    if (re.match('lsr {},{},{}$'.format(rg, rg, num), line)):
+        rd = re.findall(rg, line)[0]
+        rn = re.findall(rg, line)[1]
+        imm = int(re.findall(num, line)[-1], 0)
+        if imm == 0:
+            reg[rd] = reg[rn]
+        elif imm < 64:
+            reg[rd] = int(format(reg[rn], '#066b')[:-imm], 2)
+        else:
+            reg[rd] = 0
+        return
+    # lsr rd, rn, rm
+    if (re.match('lsr {},{},{}$'.format(rg, rg, rg), line)):
+        rd = re.findall(rg, line)[0]
+        rn = re.findall(rg, line)[1]
+        rm = re.findall(rg, line)[2]
+        if reg[rm] == 0:
+            reg[rd] = reg[rn]
+        elif reg[rm] < 64:
+            reg[rd] = int(format(reg[rn], '#066b')[:-reg[rm]], 2)
+        else:
+            reg[rd] = 0
+        return
     #lsl rd, rn, imm
     if(re.match('lsl {},{},{}$'.format(rg,rg,num),line)):
         rd = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
         imm = int(re.findall(num,line)[-1],0)
-        reg[rd] = reg[rn] << imm
+        if imm == 0:
+            reg[rd] = reg[rn]
+        elif imm < 64:
+            reg[rd] = int(format(reg[rn], '#066b')[imm+2:] + '0' * imm, 2)
+        else:
+            reg[rd] = 0
         return
     # lsl rd, rn, rm
     if (re.match('lsl {},{},{}$'.format(rg, rg, rg), line)):
         rd = re.findall(rg, line)[0]
         rn = re.findall(rg, line)[1]
         rm = re.findall(rg, line)[2]
-        reg[rd] = reg[rn] << reg[rm]
+        if reg[rm] == 0:
+            reg[rd] = reg[rn]
+        elif reg[rm] < 64:
+            reg[rd] = int(format(reg[rn], '#066b')[reg[rm]+2:] + '0' * reg[rm], 2)
+        else:
+            reg[rd] = 0
         return
     #add{s} rd, rn, imm
     if(re.match('adds? {},{},{}$'.format(rg,rg,num),line)):
@@ -1360,8 +1394,8 @@ def execute(line:str):
         else:
             pc=asm.index(label)
         return
-    #ret 
-    if(re.match('ret$',line)):
+    #br lr
+    if(re.match('br lr$',line)):
         addr = reg['lr']
         if(addr not in range(0,len(asm))):
             raise ValueError("ret: address in LR ({}) out of range".format(addr))
@@ -1553,6 +1587,8 @@ def check_static_rules():
     
     #check that all branch instructions call existing labels
     for instr in asm:
+        if (re.match('br lr$', instr)):
+            continue
         if(re.match('c?b(.*?)',instr)):
             label = re.findall(lab,instr)[-1] + ":" 
             if(label not in asm and label not in linked_labels):
@@ -1580,7 +1616,7 @@ def check_static_rules():
         for i in range(0,len(asm)-1):
             #don't care about last instruction
             if(i != len(asm) - 1):
-                if(asm[i] == 'ret' or re.match('b {}'.format(lab),asm[i])):
+                if(asm[i] == 'br lr' or re.match('b {}'.format(lab),asm[i])):
                     assert re.match(lab+':',asm[i+1]), \
                     "Dead code detected after instruction {} " + asm[i]
 

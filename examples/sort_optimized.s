@@ -18,7 +18,7 @@ swap:
 	ldur x11,[x10, #8]
 	stur x11,[x10, #0]
 	stur x9, [x10, #8]
-	ret
+	br lr
 
 sort:
 	sub sp, sp, #32
@@ -51,4 +51,4 @@ exit2:
 	add x14, x14, #1
 	b for1tst
 exit1:
-	ret
+	br lr
