@@ -1294,6 +1294,16 @@ def execute(line:str):
             n_flag = True if(reg[rd] < 0) else False
             z_flag = True if(reg[rd] == 0) else False
         return 
+    #eor{s} rd, rn, rm
+    if(re.match('eors? {},{},{}$'.format(rg,rg,rg),line)):
+        rd = re.findall(rg,line)[0]
+        rn = re.findall(rg,line)[1]
+        rm = re.findall(rg,line)[2]
+        reg[rd] = reg[rn] ^ reg[rm]
+        if('eors' in line):
+            n_flag = True if(reg[rd] < 0) else False
+            z_flag = True if(reg[rd] == 0) else False
+        return
     '''
     branch instructions
     NB. A value error is raised if a register is included where it shouldn't be
