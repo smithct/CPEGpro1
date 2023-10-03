@@ -1099,48 +1099,28 @@ def execute(line:str):
         rd = re.findall(rg, line)[0]
         rn = re.findall(rg, line)[1]
         imm = int(re.findall(num, line)[-1], 0)
-        if imm == 0:
-            reg[rd] = reg[rn]
-        elif imm < 64:
-            reg[rd] = int(format(reg[rn], '#066b')[:-imm], 2)
-        else:
-            reg[rd] = 0
+        reg[rd] = (reg[rn] & 0xFFFFFFFFFFFFFFFF) >> imm
         return
     # lsr rd, rn, rm
     if (re.match('lsr {},{},{}$'.format(rg, rg, rg), line)):
         rd = re.findall(rg, line)[0]
         rn = re.findall(rg, line)[1]
         rm = re.findall(rg, line)[2]
-        if reg[rm] == 0:
-            reg[rd] = reg[rn]
-        elif reg[rm] < 64:
-            reg[rd] = int(format(reg[rn], '#066b')[:-reg[rm]], 2)
-        else:
-            reg[rd] = 0
+        reg[rd] = (reg[rn] & 0xFFFFFFFFFFFFFFFF) >> reg[rm]
         return
-    #lsl rd, rn, imm
-    if(re.match('lsl {},{},{}$'.format(rg,rg,num),line)):
-        rd = re.findall(rg,line)[0]
-        rn = re.findall(rg,line)[1]
-        imm = int(re.findall(num,line)[-1],0)
-        if imm == 0:
-            reg[rd] = reg[rn]
-        elif imm < 64:
-            reg[rd] = int(format(reg[rn], '#066b')[imm+2:] + '0' * imm, 2)
-        else:
-            reg[rd] = 0
+    # lsl rd, rn, imm
+    if (re.match('lsl {},{},{}$'.format(rg, rg, num), line)):
+        rd = re.findall(rg, line)[0]
+        rn = re.findall(rg, line)[1]
+        imm = int(re.findall(num, line)[-1], 0)
+        reg[rd] = (reg[rn] << imm) & 0xFFFFFFFFFFFFFFFF
         return
     # lsl rd, rn, rm
     if (re.match('lsl {},{},{}$'.format(rg, rg, rg), line)):
         rd = re.findall(rg, line)[0]
         rn = re.findall(rg, line)[1]
         rm = re.findall(rg, line)[2]
-        if reg[rm] == 0:
-            reg[rd] = reg[rn]
-        elif reg[rm] < 64:
-            reg[rd] = int(format(reg[rn], '#066b')[reg[rm]+2:] + '0' * reg[rm], 2)
-        else:
-            reg[rd] = 0
+        reg[rd] = (reg[rn] << reg[rm]) & 0xFFFFFFFFFFFFFFFF
         return
     #add{s} rd, rn, imm
     if(re.match('adds? {},{},{}$'.format(rg,rg,num),line)):
