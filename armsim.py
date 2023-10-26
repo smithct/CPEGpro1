@@ -1702,6 +1702,20 @@ def reset():
     sym_table.clear()
     n_flag = False;z_flag = False
     pc = 0
+
+def run_blue_hen_hash():
+    from blue_hen_hash import blue_hen_hash
+    message_address = reg['x0']
+    message_size = reg['x1']
+    if message_address < reg['sp'] or message_address > len(mem) - message_size:
+        raise ValueError("out of bounds memory access: blue_hen_hash}")
+
+    message = mem[message_address:message_address + message_size]
+    result = blue_hen_hash(bytes(message))
+    reg['x0'] = int.from_bytes(result, byteorder='little', signed=False)
+
+
+linked_labels['blue_hen_hash:'] = run_blue_hen_hash
     
   
 def main():

@@ -99,12 +99,15 @@ procedure to print a list of separated registers on a single line,
 followed by a newline after the last one. Used to print used registers
 with the p command or monitored registers.
 '''
-def print_regs(reg_list, transform=int):
+
+
+def print_regs(reg_list, transform=str):
     for r in reg_list:
         print("{}: {}".format(r, transform(armsim.reg[r])), end=' | ')
     if(reg_list):
         print()
-        
+
+
 def main():
     with open(sys.argv[1],'r') as f:
         armsim.parse(f.readlines())
@@ -151,7 +154,7 @@ def main():
             
         #command switch statement
         if(cmd == 'p'):
-            print_regs(used_regs)
+            print_regs(used_regs, transform=str)
             print("Z: {} N: {}".format(armsim.z_flag,armsim.n_flag))
         elif (cmd == 'phex'):
             print_regs(used_regs, transform=hex)
