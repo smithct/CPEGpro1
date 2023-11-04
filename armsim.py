@@ -1712,7 +1712,7 @@ def run_blue_hen_hash():
 
     message = mem[message_address:message_address + message_size]
     result = blue_hen_hash(bytes(message))
-    reg['x0'] = int.from_bytes(result, byteorder='little', signed=False)
+    reg['x0'] = int.from_bytes(result, byteorder='big', signed=False)
 
 
 linked_labels['blue_hen_hash:'] = run_blue_hen_hash
