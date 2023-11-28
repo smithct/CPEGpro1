@@ -143,7 +143,7 @@ HEAP_SIZE  =  0x4000
 original_break = 0
 #points to current break
 brk = 0
-#dict of register names to values. Will always be numeric values       
+#dict of register names to values. Will always be numeric values
 reg = {'x0':0,'x1':0,'x2':0,'x3':0,'x4':0,'x5':0,'x6':0,'x7':0,'x8':0,'x9':0,'x10':0,
 'x11':0,'x12':0,'x13':0,'x14':0,'x15':0,'x16':0,'x17':0,'x18':0,'x19':0,'x20':0,
 'x21':0,'x22':0,'x23':0,'x24':0,'x25':0,'x26':0,'x27':0,'x28':0,'fp':0,'lr':0,'sp':0,'xzr':0}
@@ -153,9 +153,9 @@ pc = 0
 #be a pain to simulate, so the v (signed overflow) flag
 #is implicitly zero
 #negative flag
-n_flag = False 
+n_flag = False
 #zero flag
-z_flag = False 
+z_flag = False
 
 
 '''
@@ -256,7 +256,7 @@ Specify properties that a program must have
 --disallow certain instructions
 --require/forbid recursion
 '''
-#A set that contains the mnemonic of instructions that you don't want used 
+#A set that contains the mnemonic of instructions that you don't want used
 #for a particular run of the the program
 forbidden_instructions = set()
 
@@ -272,6 +272,13 @@ check_dead_code = False
 #set to add labels that should be recursively called
 #(do not include colon)
 recursive_labels = set()
+
+# Performance Flags
+cycle_count = 0
+execute_count = 0
+ld_cycle, ld_dst = -1, -1
+flag_cycle = -1
+last_dst = -1
 
 
 
@@ -290,8 +297,8 @@ def parse(lines)->None:
     comment = False
     code = False
     data = False
-    bss = False 
-    
+    bss = False
+
     #allocate the stack and set the stack pointer
     mem.extend(list([0]*STACK_SIZE))
     reg['sp'] = len(mem) - 1
@@ -303,11 +310,11 @@ def parse(lines)->None:
     '''
     index = len(mem)
 
-    
+
     for line in lines:
         line = line.strip()
-        #convert multiple spaces into one space 
-        line = re.sub('[ \t]+',' ',line) 
+        #convert multiple spaces into one space
+        line = re.sub('[ \t]+',' ',line)
         if('/*' in line and '*/' in line):continue
         if('//' in line):continue
         if("/*" in line):comment = True;continue
@@ -317,7 +324,7 @@ def parse(lines)->None:
         if("main:" in line or "_start:" in line):code = True;data = False;bss = False;continue
         if(code and not comment and len(line)>0):line = line.lower();asm.append(line)
         if((data or bss) and not comment):
-            #remove quotes and whitespace surrouding punctuation 
+            #remove quotes and whitespace surrouding punctuation
             #spaces following colons and periods are not touched so
             #that string literals are not altered
             line = re.sub('[ ]*:',':',line)
@@ -337,11 +344,11 @@ def parse(lines)->None:
             if(re.match('.*:\.asciz.*',line)):
                 #Don't convert string literals to lower case, so split on quote
                 #and everything to the left becomes lower
-                line = line[0:line.find('\"')].lower() + line[line.find('\"'):]             
+                line = line[0:line.find('\"')].lower() + line[line.find('\"'):]
                 #remove quote characters
                 line = re.sub('["]','',line)
                 #escape characters get mangled to \\<char>, convert to \<char>
-                #for now just tab, carriage return, and newline 
+                #for now just tab, carriage return, and newline
                 line = line.replace('\\n','\n')
                 line = line.replace('\\t','\t')
                 line = line.replace('\\r','\r')
@@ -364,13 +371,13 @@ def parse(lines)->None:
                 line = line.lower()
                 line = line.split(":.space ")
                 size = sym_table[line[1]] if line[1] in sym_table else int(line[1])
-                mem.extend(list([0]*size))    
+                mem.extend(list([0]*size))
                 sym_table[line[0]] = index
                 sym_table[line[0]+"_TYPE_"] = 2
                 sym_table[line[0]+"_SIZE_"] = size
                 index+=size
-                continue    
-                
+                continue
+
             '''
             The .dword directive is followed by a comma separated list
             of numbers. Each number will be an 8 byte entry in mem.
@@ -384,11 +391,11 @@ def parse(lines)->None:
                 size = len(numbers) * 8
                 for n in numbers:
                     mem.extend(list(int.to_bytes(n,8,'little')))
-                
+
                 sym_table[line[0]] = index
                 sym_table[line[0]+"_SIZE_"] = size
-                sym_table[line[0]+"_TYPE_"] = 1 
-                index+=size 
+                sym_table[line[0]+"_TYPE_"] = 1
+                index+=size
                 continue
 
             '''
@@ -455,7 +462,7 @@ def parse(lines)->None:
             If using the len=.-str idiom to store str length, we
             lookup the length of str that we stored in sym_table
             dict when handling .asciz in the format str_SIZE_ 
-            '''         
+            '''
             if(re.match('(.)+=.-(.)+',line)):
                 line = line.lower()
                 line = line.split("=.-")
@@ -485,8 +492,8 @@ def parse(lines)->None:
     #extend mem to make room for the stack, then set the stack pointer
     #mem.extend(list([0]*HEAP_SIZE))
 
-    
-    
+
+
 '''
 This procedure dispatches and executes the provided line
 of assembly code. In order to deal with the myriad
@@ -511,30 +518,38 @@ def execute(line:str):
     global pc,n_flag,z_flag,label_hit_counts,mem
     global original_break,brk,STACK_SIZE, HEAP_SIZE
     global register_regex,num_regex,var_regex,label_regex
-        
+    global cycle_count, execute_count, ld_cycle, ld_dst
+    global flag_cycle, last_dst
+    current_cycle = cycle_count
+    cycle_count += 1
+    execute_count += 1
+    last_dst = None
+
     #remove spaces around commas
     line = re.sub('[ ]*,[ ]*',',',line)
     #octothorpe is optional, remove it
-    line = re.sub('#','',line) 
-    
+    line = re.sub('#','',line)
+
     #use abbreviations for the regexes
     rg = register_regex
     num = num_regex
     var = var_regex
     lab = label_regex
-    
+
     #all labels in program (better feedback for typos/malformed branches
     #[:-1] is so that the colon in the label is not included
     labels = [l[:-1] for l in asm if(re.match('{}:'.format(lab),l))]
     '''
     ldp instructions
-    ''' 
+    '''
     #ldp rt, rt2, [rn]
     #dollar sign so it doesn't match post index
     if(re.match('ldp {},{},\[{}\]$'.format(rg,rg,rg),line)):
         rt = re.findall(rg,line)[0]
         rt2 = re.findall(rg,line)[1]
         rn = re.findall(rg,line)[2]
+        if ld_dst == rn and (current_cycle - ld_cycle) <= 2:
+            cycle_count += (current_cycle - ld_cycle)
         addr = reg[rn]
         #check for out of bounds mem access
         if(addr < reg['sp'] or addr > len(mem) - 16):
@@ -542,6 +557,8 @@ def execute(line:str):
         reg[rt] = int.from_bytes(bytes(mem[addr:addr+8]),'little')
         addr += 8
         reg[rt2] = int.from_bytes(bytes(mem[addr:addr+8]),'little')
+        ld_cycle = current_cycle
+        ld_dst = rt
         return
     #ldp rt, rt2, [rn, imm]
     #dollar sign so it doesn't match pre index
@@ -549,6 +566,8 @@ def execute(line:str):
         rt = re.findall(rg,line)[0]
         rt2 = re.findall(rg,line)[1]
         rn = re.findall(rg,line)[2]
+        if ld_dst == rn and (current_cycle - ld_cycle) <= 2:
+            cycle_count += (current_cycle - ld_cycle)
         imm = int(re.findall(num,line)[-1],0)
         addr = reg[rn] + imm
         #check for out of bounds mem access
@@ -557,13 +576,17 @@ def execute(line:str):
         reg[rt] = int.from_bytes(bytes(mem[addr:addr+8]),'little')
         addr += 8
         reg[rt2] = int.from_bytes(bytes(mem[addr:addr+8]),'little')
+        ld_cycle = current_cycle
+        ld_dst = rt
         return
-    
+
     #ldp rt, rt2, [rn, imm]! //pre index
     if(re.match('ldp {},{},\[{},{}\]!$'.format(rg,rg,rg,num),line)):
         rt = re.findall(rg,line)[0]
         rt2 = re.findall(rg,line)[1]
         rn = re.findall(rg,line)[2]
+        if ld_dst == rn and (current_cycle - ld_cycle) <= 2:
+            cycle_count += (current_cycle - ld_cycle)
         imm = int(re.findall(num,line)[-1],0)
         reg[rn] += imm
         addr = reg[rn]
@@ -573,12 +596,16 @@ def execute(line:str):
         reg[rt] = int.from_bytes(bytes(mem[addr:addr+8]),'little')
         addr += 8
         reg[rt2] = int.from_bytes(bytes(mem[addr:addr+8]),'little')
+        ld_cycle = current_cycle
+        ld_dst = rt
         return
     #ldp rt, rt2, [rn], imm //post index
     if(re.match('ldp {},{},\[{}\],{}$'.format(rg,rg,rg,num),line)):
         rt = re.findall(rg,line)[0]
         rt2 = re.findall(rg,line)[1]
         rn = re.findall(rg,line)[2]
+        if ld_dst == rn and (current_cycle - ld_cycle) <= 2:
+            cycle_count += (current_cycle - ld_cycle)
         imm = int(re.findall(num,line)[-1],0)
         addr = reg[rn]
         #check for out of bounds mem access
@@ -591,6 +618,8 @@ def execute(line:str):
         #check for out of bounds pointer
         if(reg[rn] > len(mem) and reg[rn] < reg['sp']):
             raise ValueError("register {} points to out of bounds memory".format(reg[rn]))
+        ld_cycle = current_cycle
+        ld_dst = rt
         return
 
     '''
@@ -601,7 +630,9 @@ def execute(line:str):
     if(re.match('stp {},{},\[{}\]$'.format(rg,rg,rg),line)):
         rt = re.findall(rg,line)[0]
         rt2 = re.findall(rg,line)[1]
-        rn = re.findall(rg,line)[2]        
+        rn = re.findall(rg,line)[2]
+        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
+            cycle_count += (current_cycle - ld_cycle)
         addr = reg[rn]
         #check for out of bounds mem access
         if(addr < reg['sp'] or addr > len(mem) - 16):
@@ -609,15 +640,17 @@ def execute(line:str):
         mem[addr:addr+8] = list(int.to_bytes((reg[rt]),8,'little'))
         addr += 8
         mem[addr:addr+8] = list(int.to_bytes((reg[rt2]),8,'little'))
-        return   
-    
+        return
+
     #stp rt, rt2, [rn, imm]
     #dollar sign so it doesn't match pre index
     if(re.match('stp {},{},\[{},{}\]$'.format(rg,rg,rg,num),line)):
         rt = re.findall(rg,line)[0]
         rt2 = re.findall(rg,line)[1]
         rn = re.findall(rg,line)[2]
-        imm = int(re.findall(num,line)[-1],0)        
+        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
+            cycle_count += (current_cycle - ld_cycle)
+        imm = int(re.findall(num,line)[-1],0)
         addr = reg[rn] + imm
         #check for out of bounds mem access
         if(addr < reg['sp'] or addr > len(mem) - 16):
@@ -625,12 +658,14 @@ def execute(line:str):
         mem[addr:addr+8] = list(int.to_bytes((reg[rt]),8,'little'))
         addr += 8
         mem[addr:addr+8] = list(int.to_bytes((reg[rt2]),8,'little'))
-        return 
+        return
     #stp rt, rt2, [rn, imm]! //pre index
     if(re.match('stp {},{},\[{},{}\]!$'.format(rg,rg,rg,num),line)):
         rt = re.findall(rg,line)[0]
         rt2 = re.findall(rg,line)[1]
-        rn = re.findall(rg,line)[2]        
+        rn = re.findall(rg,line)[2]
+        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
+            cycle_count += (current_cycle - ld_cycle)
         imm = int(re.findall(num,line)[-1],0)
         reg[rn] += imm
         addr = reg[rn]
@@ -645,7 +680,9 @@ def execute(line:str):
     if(re.match('stp {},{},\[{}\],{}$'.format(rg,rg,rg,num),line)):
         rt = re.findall(rg,line)[0]
         rt2 = re.findall(rg,line)[1]
-        rn = re.findall(rg,line)[2]        
+        rn = re.findall(rg,line)[2]
+        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
+            cycle_count += (current_cycle - ld_cycle)
         imm = int(re.findall(num,line)[-1],0)
         addr = reg[rn]
         #check for out of bounds mem access
@@ -665,18 +702,24 @@ def execute(line:str):
     if (re.match('ldurbh {},\[{}\]$'.format(rg, rg), line)):
         rt = re.findall(rg, line)[0]
         rn = re.findall(rg, line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle) <= 2:
+            cycle_count += 1
         addr = reg[rn]
         # check for out of bounds mem access
         if (addr < reg['sp'] or addr > len(mem) - 2):
             raise ValueError("out of bounds memory access: {}".format(line))
         # load 2 bytes starting at addr and convert to int
         reg[rt] = int.from_bytes(bytes(mem[addr:addr + 2]), 'little')
+        ld_cycle = current_cycle
+        ld_dst = rt
         return
     # ldurh rt, [rn, imm]
     # dollar sign so it doesn't match pre index
     if (re.match('ldurh {},\[{},{}\]$'.format(rg, rg, num), line)):
         rt = re.findall(rg, line)[0]
         rn = re.findall(rg, line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
+            cycle_count += (current_cycle - ld_cycle)
         imm = int(re.findall(num, line)[-1], 0)
         addr = reg[rn] + imm
         # check for out of bounds mem access
@@ -684,6 +727,8 @@ def execute(line:str):
             raise ValueError("out of bounds memory access: {}".format(line))
         # load 2 byte starting at addr and convert to int
         reg[rt] = int.from_bytes(bytes(mem[addr:addr + 2]), 'little')
+        ld_cycle = current_cycle
+        ld_dst = rt
         return
     # ldurh rt, [rn, rm]
     # dollar sign so it doesn't match pre index
@@ -691,17 +736,23 @@ def execute(line:str):
         rt = re.findall(rg, line)[0]
         rn = re.findall(rg, line)[1]
         rm = re.findall(rg, line)[2]
+        if (ld_dst == rn or ld_dst == rm) and (current_cycle - ld_cycle) <= 2:
+            cycle_count += (current_cycle - ld_cycle)
         addr = reg[rn] + reg[rm]
         # check for out of bounds mem access
         if (addr < reg['sp'] or addr > len(mem) - 2):
             raise ValueError("out of bounds memory access: {}".format(line))
         # load 2 byte starting at addr and convert to int
         reg[rt] = int.from_bytes(bytes(mem[addr:addr + 2]), 'little')
+        ld_cycle = current_cycle
+        ld_dst = rt
         return
     # ldurh rt, [rn, imm]! //pre index
     if (re.match('ldurh {},\[{},{}\]!'.format(rg, rg, num), line)):
         rt = re.findall(rg, line)[0]
         rn = re.findall(rg, line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle) <= 2:
+            cycle_count += 1
         imm = int(re.findall(num, line)[-1], 0)
         reg[rn] += imm
         addr = reg[rn]
@@ -710,11 +761,15 @@ def execute(line:str):
             raise ValueError("out of bounds memory access: {}".format(line))
         # load 2 byte starting at addr and convert to int
         reg[rt] = int.from_bytes(bytes(mem[addr:addr + 2]), 'little')
+        ld_cycle = current_cycle
+        ld_dst = rt
         return
     # ldurh rt, [rn], imm //post index
     if (re.match('ldurh {},\[{}\],{}$'.format(rg, rg, num), line)):
         rt = re.findall(rg, line)[0]
         rn = re.findall(rg, line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle) <= 2:
+            cycle_count += 1
         imm = int(re.findall(num, line)[-1], 0)
         addr = reg[rn]
         # check for out of bounds mem access
@@ -726,6 +781,8 @@ def execute(line:str):
         # check for out of bounds pointer
         if (reg[rn] > len(mem) and reg[rn] < reg['sp']):
             raise ValueError("register {} points to out of bounds memory".format(reg[rn]))
+        ld_cycle = current_cycle
+        ld_dst = rt
         return
     '''ldurbh instructions'''
     #ldurb rt, [rn]
@@ -733,18 +790,24 @@ def execute(line:str):
     if(re.match('ldurb {},\[{}\]$'.format(rg,rg),line)):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle) <= 2:
+            cycle_count += 1
         addr = reg[rn]
         #check for out of bounds mem access
         if(addr < reg['sp'] or addr > len(mem) - 1):
             raise ValueError("out of bounds memory access: {}".format(line))
         #load 1 bytes starting at addr and convert to int
         reg[rt] = int.from_bytes(bytes(mem[addr:addr+1]),'little')
+        ld_cycle = current_cycle
+        ld_dst = rt
         return
     #ldurb rt, [rn, imm]
     #dollar sign so it doesn't match pre index
     if(re.match('ldurb {},\[{},{}\]$'.format(rg,rg,num),line)):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle) <= 2:
+            cycle_count += 1
         imm = int(re.findall(num,line)[-1],0)
         addr = reg[rn] + imm
         #check for out of bounds mem access
@@ -752,6 +815,8 @@ def execute(line:str):
             raise ValueError("out of bounds memory access: {}".format(line))
         #load 1 byte starting at addr and convert to int
         reg[rt] = int.from_bytes(bytes(mem[addr:addr+1]),'little')
+        ld_cycle = current_cycle
+        ld_dst = rt
         return
     #ldurb rt, [rn, rm]
     #dollar sign so it doesn't match pre index
@@ -759,17 +824,23 @@ def execute(line:str):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
         rm = re.findall(rg,line)[2]
+        if (ld_dst == rn or ld_dst == rm) and (current_cycle - ld_cycle) <= 2:
+            cycle_count += (current_cycle - ld_cycle)
         addr = reg[rn] + reg[rm]
         #check for out of bounds mem access
         if(addr < reg['sp'] or addr > len(mem) - 1):
             raise ValueError("out of bounds memory access: {}".format(line))
         #load 1 byte starting at addr and convert to int
         reg[rt] = int.from_bytes(bytes(mem[addr:addr+1]),'little')
+        ld_cycle = current_cycle
+        ld_dst = rt
         return
     #ldurb rt, [rn, imm]! //pre index
     if(re.match('ldurb {},\[{},{}\]!'.format(rg,rg,num),line)):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle) <= 2:
+            cycle_count += 1
         imm = int(re.findall(num,line)[-1],0)
         reg[rn] += imm
         addr = reg[rn]
@@ -778,11 +849,14 @@ def execute(line:str):
             raise ValueError("out of bounds memory access: {}".format(line))
         #load 1 byte starting at addr and convert to int
         reg[rt] = int.from_bytes(bytes(mem[addr:addr+1]),'little')
+        ld_cycle = current_cycle
         return
     #ldurb rt, [rn], imm //post index
     if(re.match('ldurb {},\[{}\],{}$'.format(rg,rg,num),line)):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle) <= 2:
+            cycle_count += 1
         imm = int(re.findall(num,line)[-1],0)
         addr = reg[rn]
         #check for out of bounds mem access
@@ -794,6 +868,8 @@ def execute(line:str):
         #check for out of bounds pointer
         if(reg[rn] > len(mem) and reg[rn] < reg['sp']):
             raise ValueError("register {} points to out of bounds memory".format(reg[rn]))
+        ld_cycle = current_cycle
+        ld_dst = rt
         return
     '''
     ldur instructions
@@ -803,24 +879,32 @@ def execute(line:str):
         rt = re.findall(rg,line)[0]
         v = re.findall('='+var,line)[0][1:]
         reg[rt] = sym_table[v]
+        ld_cycle = current_cycle
+        ld_dst = rt
         return
     #ldur rt, [rn]
     #dollar sign so it doesn't match post index
     if(re.match('ldur {},\[{}\]$'.format(rg,rg),line)):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle) <= 2:
+            cycle_count += 1
         addr = reg[rn]
         #check for out of bounds mem access
         if(addr < reg['sp'] or addr > len(mem) - 8):
             raise ValueError("out of bounds memory access: {}".format(line))
         #load 8 bytes starting at addr and convert to int
         reg[rt] = int.from_bytes(bytes(mem[addr:addr+8]),'little')
+        ld_cycle = current_cycle
+        ld_dst = rt
         return
     #ldur rt, [rn, imm]
     #dollar sign so it doesn't match pre index
     if(re.match('ldur {},\[{},{}\]$'.format(rg,rg,num),line)):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle) <= 2:
+            cycle_count += 1
         imm = int(re.findall(num,line)[-1],0)
         addr = reg[rn] + imm
         #check for out of bounds mem access
@@ -828,6 +912,8 @@ def execute(line:str):
             raise ValueError("out of bounds memory access: {}".format(line))
         #load 8 bytes starting at addr and convert to int
         reg[rt] = int.from_bytes(bytes(mem[addr:addr+8]),'little')
+        ld_cycle = current_cycle
+        ld_dst = rt
         return
     #ldur rt, [rn, rm]
     #dollar sign so it doesn't match pre index
@@ -835,17 +921,23 @@ def execute(line:str):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
         rm = re.findall(rg,line)[2]
+        if (ld_dst == rn or ld_dst == rm) and (current_cycle - ld_cycle) <= 2:
+            cycle_count += 1
         addr = reg[rn] + reg[rm]
         #check for out of bounds mem access
         if(addr < reg['sp'] or addr > len(mem) - 8):
             raise ValueError("out of bounds memory access: {}".format(line))
         #load 8 bytes starting at addr and convert to int
         reg[rt] = int.from_bytes(bytes(mem[addr:addr+8]),'little')
+        ld_cycle = current_cycle
+        ld_dst = rt
         return
     #ldur rt, [rn, imm]! //pre index
     if(re.match('ldur {},\[{},{}\]!'.format(rg,rg,num),line)):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle) <= 2:
+            cycle_count += 1
         imm = int(re.findall(num,line)[-1],0)
         reg[rn] += imm
         addr = reg[rn]
@@ -854,11 +946,15 @@ def execute(line:str):
             raise ValueError("out of bounds memory access: {}".format(line))
         #load 8 bytes starting at addr and convert to int
         reg[rt] = int.from_bytes(bytes(mem[addr:addr+8]),'little')
+        ld_cycle = current_cycle
+        ld_dst = rt
         return
     #ldur rt, [rn], imm //post index
     if(re.match('ldur {},\[{}\],{}$'.format(rg,rg,num),line)):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle) <= 2:
+            cycle_count += 1
         imm = int(re.findall(num,line)[-1],0)
         addr = reg[rn]
         #check for out of bounds mem access
@@ -870,6 +966,8 @@ def execute(line:str):
         #check for out of bounds pointer
         if(reg[rn] > len(mem) and reg[rn] < reg['sp']):
             raise ValueError("register {} points to out of bounds memory".format(reg[rn]))
+        ld_cycle = current_cycle
+        ld_dst = rt
         return
     '''sturh instruction'''
     # sturh rt, [rn]
@@ -877,6 +975,8 @@ def execute(line:str):
     if (re.match('sturh {},\[{}\]$'.format(rg, rg), line)):
         rt = re.findall(rg, line)[0]
         rn = re.findall(rg, line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
+            cycle_count += (current_cycle - ld_cycle)
         addr = reg[rn]
         # check for out of bounds mem access
         if (addr < reg['sp'] or addr > len(mem) - 2):
@@ -888,6 +988,8 @@ def execute(line:str):
     if (re.match('sturh {},\[{},{}\]$'.format(rg, rg, num), line)):
         rt = re.findall(rg, line)[0]
         rn = re.findall(rg, line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
+            cycle_count += (current_cycle - ld_cycle)
         imm = int(re.findall(num, line)[-1], 0)
         addr = reg[rn] + imm
         # check for out of bounds mem access
@@ -901,6 +1003,8 @@ def execute(line:str):
         rt = re.findall(rg, line)[0]
         rn = re.findall(rg, line)[1]
         rm = re.findall(rg, line)[2]
+        if (ld_dst == rn or ld_dst == rm) and (current_cycle - ld_cycle <= 2):
+            cycle_count += 1
         addr = reg[rn] + reg[rm]
         # check for out of bounds mem access
         if (addr < reg['sp'] or addr > len(mem) - 2):
@@ -911,6 +1015,8 @@ def execute(line:str):
     if (re.match('sturh {},\[{},{}\]!$'.format(rg, rg, num), line)):
         rt = re.findall(rg, line)[0]
         rn = re.findall(rg, line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
+            cycle_count += (current_cycle - ld_cycle)
         imm = int(re.findall(num, line)[-1], 0)
         reg[rn] += imm
         addr = reg[rn]
@@ -923,6 +1029,8 @@ def execute(line:str):
     if (re.match('sturh {},\[{}\],{}$'.format(rg, rg, num), line)):
         rt = re.findall(rg, line)[0]
         rn = re.findall(rg, line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
+            cycle_count += (current_cycle - ld_cycle)
         imm = int(re.findall(num, line)[-1], 0)
         addr = reg[rn]
         # check for out of bounds mem access
@@ -940,6 +1048,8 @@ def execute(line:str):
     if(re.match('sturb {},\[{}\]$'.format(rg,rg),line)):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
+            cycle_count += (current_cycle - ld_cycle)
         addr = reg[rn]
         #check for out of bounds mem access
         if(addr < reg['sp'] or addr > len(mem) - 1):
@@ -951,6 +1061,8 @@ def execute(line:str):
     if(re.match('sturb {},\[{},{}\]$'.format(rg,rg,num),line)):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
+            cycle_count += (current_cycle - ld_cycle)
         imm = int(re.findall(num,line)[-1],0)
         addr = reg[rn] + imm
         #check for out of bounds mem access
@@ -964,6 +1076,8 @@ def execute(line:str):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
         rm = re.findall(rg,line)[2]
+        if (ld_dst == rn or ld_dst == rm) and (current_cycle - ld_cycle <= 2):
+            cycle_count += 1
         addr = reg[rn] + reg[rm]
         #check for out of bounds mem access
         if(addr < reg['sp'] or addr > len(mem) - 1):
@@ -974,6 +1088,8 @@ def execute(line:str):
     if(re.match('sturb {},\[{},{}\]!$'.format(rg,rg,num),line)):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
+            cycle_count += (current_cycle - ld_cycle)
         imm = int(re.findall(num,line)[-1],0)
         reg[rn] += imm
         addr = reg[rn]
@@ -987,6 +1103,8 @@ def execute(line:str):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
         imm = int(re.findall(num,line)[-1],0)
+        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
+            cycle_count += (current_cycle - ld_cycle)
         addr = reg[rn]
         #check for out of bounds mem access
         if(addr < reg['sp'] or addr > len(mem) - 1):
@@ -1005,12 +1123,14 @@ def execute(line:str):
     if(re.match('stur {},\[{}\]$'.format(rg,rg),line)):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
+            cycle_count += (current_cycle - ld_cycle)
         addr = reg[rn]
         #check for out of bounds mem access
         if(addr < reg['sp'] or addr > len(mem) - 8):
             raise ValueError("out of bounds memory access: {}".format(line))
         mem[addr:addr+8] = list(int.to_bytes((reg[rt]),8,'little'))
-        return       
+        return
     #stur rt, [rn, imm]
     #dollar sign so it doesn't match pre index
     if(re.match('stur {},\[{},{}\]$'.format(rg,rg,num),line)):
@@ -1022,13 +1142,15 @@ def execute(line:str):
         if(addr < reg['sp'] or addr > len(mem) - 8):
             raise ValueError("out of bounds memory access: {}".format(line))
         mem[addr:addr+8] = list(int.to_bytes((reg[rt]),8,'little'))
-        return    
+        return
     #stur rt, [rn, rm]
     #dollar sign so it doesn't match pre index
     if(re.match('stur {},\[{},{}\]$'.format(rg,rg,rg),line)):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
         rm = re.findall(rg,line)[2]
+        if (ld_dst == rn or ld_dst == rm) and (current_cycle - ld_cycle <= 2):
+            cycle_count += 1
         addr = reg[rn] + reg[rm]
         #check for out of bounds mem access
         if(addr < reg['sp'] or addr > len(mem) - 8):
@@ -1039,6 +1161,8 @@ def execute(line:str):
     if(re.match('stur {},\[{},{}\]!$'.format(rg,rg,num),line)):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
+            cycle_count += (current_cycle - ld_cycle)
         imm = int(re.findall(num,line)[-1],0)
         reg[rn] += imm
         addr = reg[rn]
@@ -1046,11 +1170,13 @@ def execute(line:str):
         if(addr < reg['sp'] or addr > len(mem) - 8):
             raise ValueError("out of bounds memory access: {}".format(line))
         mem[addr:addr+8] = list(int.to_bytes((reg[rt]),8,'little'))
-        return 
+        return
     #stur rt, [rn], imm //post index
     if(re.match('stur {},\[{}\],{}$'.format(rg,rg,num),line)):
         rt = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
+            cycle_count += (current_cycle - ld_cycle)
         imm = int(re.findall(num,line)[-1],0)
         addr = reg[rn]
         #check for out of bounds mem access
@@ -1061,7 +1187,7 @@ def execute(line:str):
         #check for out of bounds pointer
         if(reg[rn] > len(mem) and reg[rn] < reg['sp']):
             raise ValueError("register {} points to out of bounds memory".format(reg[rn]))
-        return 
+        return
     '''
     mov instructions
     '''
@@ -1070,12 +1196,16 @@ def execute(line:str):
         rd = re.findall(rg,line)[0]
         imm = int(re.findall(num,line)[-1],0)
         reg[rd] = imm
+        last_dst = rd
         return
     #mov rd, rn
     if(re.match('mov {},{}$'.format(rg,rg),line)):
         rd = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle) <= 2:
+            cycle_count += 1
         reg[rd] = reg[rn]
+        last_dst = rd
         return
     '''
     arithmetic instructions
@@ -1084,90 +1214,128 @@ def execute(line:str):
     if(re.match('asr {},{},{}$'.format(rg,rg,num),line)):
         rd = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle) <= 2:
+            cycle_count += (current_cycle - ld_cycle)
         imm = int(re.findall(num,line)[-1],0)
         reg[rd] = reg[rn] >> imm
+        last_dst = rd
         return
     # asr rd, rn, rm
     if (re.match('asr {},{},{}$'.format(rg, rg, num), line)):
         rd = re.findall(rg, line)[0]
         rn = re.findall(rg, line)[1]
         rm = re.findall(rg, line)[2]
+        if (ld_dst == rn or ld_dst == rm) and (current_cycle - ld_cycle <= 2):
+            cycle_count += 1
         reg[rd] = reg[rn] >> reg[rm]
+        last_dst = rd
         return
     # lsr rd, rn, imm
     if (re.match('lsr {},{},{}$'.format(rg, rg, num), line)):
         rd = re.findall(rg, line)[0]
         rn = re.findall(rg, line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
+            cycle_count += (current_cycle - ld_cycle)
         imm = int(re.findall(num, line)[-1], 0)
         reg[rd] = (reg[rn] & 0xFFFFFFFFFFFFFFFF) >> imm
+        last_dst = rd
         return
     # lsr rd, rn, rm
     if (re.match('lsr {},{},{}$'.format(rg, rg, rg), line)):
         rd = re.findall(rg, line)[0]
         rn = re.findall(rg, line)[1]
         rm = re.findall(rg, line)[2]
+        if (ld_dst == rn or ld_dst == rm) and (current_cycle - ld_cycle <= 2):
+            cycle_count += 1
         reg[rd] = (reg[rn] & 0xFFFFFFFFFFFFFFFF) >> reg[rm]
+        last_dst = rd
         return
     # lsl rd, rn, imm
     if (re.match('lsl {},{},{}$'.format(rg, rg, num), line)):
         rd = re.findall(rg, line)[0]
         rn = re.findall(rg, line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
+            cycle_count += (current_cycle - ld_cycle)
         imm = int(re.findall(num, line)[-1], 0)
         reg[rd] = (reg[rn] << imm) & 0xFFFFFFFFFFFFFFFF
+        last_dst = rd
         return
     # lsl rd, rn, rm
     if (re.match('lsl {},{},{}$'.format(rg, rg, rg), line)):
         rd = re.findall(rg, line)[0]
         rn = re.findall(rg, line)[1]
         rm = re.findall(rg, line)[2]
+        if (ld_dst == rn or ld_dst == rm) and (current_cycle - ld_cycle <= 2):
+            cycle_count += 1
         reg[rd] = (reg[rn] << reg[rm]) & 0xFFFFFFFFFFFFFFFF
+        last_dst = rd
         return
     #add{s} rd, rn, imm
     if(re.match('adds? {},{},{}$'.format(rg,rg,num),line)):
         rd = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle <= 1):
+            cycle_count += 1
         imm = int(re.findall(num,line)[-1],0)
         reg[rd] = reg[rn] + imm
         if('adds' in line):
             n_flag = True if(reg[rd] < 0) else False
-            z_flag = True if(reg[rd] == 0) else False        
+            z_flag = True if(reg[rd] == 0) else False
+            flag_cycle = current_cycle
+        last_dst = rd
         return
     #add{s} rd, rn, rm
     if(re.match('adds? {},{},{}$'.format(rg,rg,rg),line)):
         rd = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
         rm = re.findall(rg,line)[2]
+        if (ld_dst == rn or ld_dst == rm) and (current_cycle - ld_cycle <= 2):
+            cycle_count += 1
         reg[rd] = reg[rn] + reg[rm]
         if('adds' in line):
             n_flag = True if(reg[rd] < 0) else False
-            z_flag = True if(reg[rd] == 0) else False        
+            z_flag = True if(reg[rd] == 0) else False
+            flag_cycle = current_cycle
+        last_dst = rd
         return
     #sub{s} rd, rn, imm
     if(re.match('subs? {},{},{}$'.format(rg,rg,num),line)):
         rd = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
+            cycle_count += (current_cycle - ld_cycle)
         imm = int(re.findall(num,line)[-1],0)
         reg[rd] = reg[rn] - imm
         if('subs' in line):
             n_flag = True if(reg[rd] < 0) else False
             z_flag = True if(reg[rd] == 0) else False
+            flag_cycle = current_cycle
+        last_dst = rd
         return
     #sub{s} rd, rn, rm
     if(re.match('subs? {},{},{}$'.format(rg,rg,rg),line)):
         rd = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
         rm = re.findall(rg,line)[2]
+        if (ld_dst == rn or ld_dst == rm) and (current_cycle - ld_cycle <= 2):
+            cycle_count += 1
         reg[rd] = reg[rn] - reg[rm]
         if('subs' in line):
             n_flag = True if(reg[rd] < 0) else False
             z_flag = True if(reg[rd] == 0) else False
+            flag_cycle = current_cycle
+        last_dst = rd
         return
     #mul rd, rn, rm
     if(re.match('mul {},{},{}$'.format(rg,rg,rg),line)):
         rd = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
         rm = re.findall(rg,line)[2]
+        if (ld_dst == rn or ld_dst == rm) and (current_cycle - ld_cycle <= 2):
+            cycle_count += 1
         reg[rd] = reg[rn] * reg[rm]
+        last_dst = rd
+        cycle_count += 4
         return
     #For now treat un/signed division the same, since everything
     #is signed in python, but separate in case this changes
@@ -1176,16 +1344,22 @@ def execute(line:str):
         rd = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
         rm = re.findall(rg,line)[2]
+        if (ld_dst == rn or ld_dst == rm) and (current_cycle - ld_cycle <= 2):
+            cycle_count += 1
         #IMPORTANT: use integer division, not floating point
         reg[rd] = reg[rn] // reg[rm]
+        last_dst = rd
         return
     #sdiv rd, rn, rm
     if(re.match('sdiv {},{},{}$'.format(rg,rg,rg),line)):
         rd = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
         rm = re.findall(rg,line)[2]
+        if (ld_dst == rn or ld_dst == rm) and (current_cycle - ld_cycle <= 2):
+            cycle_count += 1
         #IMPORTANT: use integer division, not floating point
         reg[rd] = reg[rn] // reg[rm]
+        last_dst = rd
         return
     #msub rd, rn, rm, ra
     if(re.match('msub {},{},{},{}$'.format(rg,rg,rg,rg),line)):
@@ -1193,7 +1367,10 @@ def execute(line:str):
         rn = re.findall(rg,line)[1]
         rm = re.findall(rg,line)[2]
         ra = re.findall(rg,line)[3]
+        if (ld_dst == rn or ld_dst == rm or ld_dst == ra) and (current_cycle - ld_cycle <= 2):
+            cycle_count += 1
         reg[rd] = reg[ra] - reg[rn] * reg[rm]
+        last_dst = rd
         return
     #madd rd, rn, rm, ra
     if(re.match('madd {},{},{},{}$'.format(rg,rg,rg,rg),line)):
@@ -1201,7 +1378,10 @@ def execute(line:str):
         rn = re.findall(rg,line)[1]
         rm = re.findall(rg,line)[2]
         ra = re.findall(rg,line)[3]
+        if (ld_dst == rn or ld_dst == rm or ld_dst == ra) and (current_cycle - ld_cycle <= 2):
+            cycle_count += 1
         reg[rd] = reg[ra] + reg[rn] * reg[rm]
+        last_dst = rd
         return
     '''
     compare instructions
@@ -1210,16 +1390,24 @@ def execute(line:str):
     if(re.match('cmp {},{}$'.format(rg,rg),line)):
         rn = re.findall(rg,line)[0]
         rm = re.findall(rg,line)[1]
+        if (ld_dst == rn or ld_dst == rm) and (current_cycle - ld_cycle <= 2):
+            cycle_count += 1
         assert rm != 'sp', "2nd register in cmp can't be sp"
         z_flag = True if reg[rn] == reg[rm] else False
         n_flag = True if reg[rn] < reg[rm] else False
+        flag_cycle = current_cycle
+        last_dst = rn
         return
     #cmp rn, imm
     if(re.match('cmp {},{}$'.format(rg,num),line)):
         rn = re.findall(rg,line)[0]
+        if (ld_dst == rn) and (current_cycle - ld_cycle <= 2):
+            cycle_count += 1
         imm = int(re.findall(num,line)[-1],0)
         z_flag = True if reg[rn] == imm else False
         n_flag = True if reg[rn] < imm else False
+        flag_cycle = current_cycle
+        last_dst = rn
         return
     '''
     logical instructions
@@ -1228,61 +1416,85 @@ def execute(line:str):
     if(re.match('ands? {},{},{}$'.format(rg,rg,num),line)):
         rd = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
+            cycle_count += (current_cycle - ld_cycle)
         imm = int(re.findall(num,line)[-1],0)
-        reg[rd] = reg[rn] & imm   
+        reg[rd] = reg[rn] & imm
         if('ands' in line):
             n_flag = True if(reg[rd] < 0) else False
-            z_flag = True if(reg[rd] == 0) else False 
-        return 
+            z_flag = True if(reg[rd] == 0) else False
+            flag_cycle = current_cycle
+        last_dst = rd
+        return
     #and{s} rd, rn, rm
     if(re.match('ands? {},{},{}$'.format(rg,rg,rg),line)):
         rd = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
         rm = re.findall(rg,line)[2]
-        reg[rd] = reg[rn] & reg[rm]   
+        if (ld_dst == rn or ld_dst == rm) and (current_cycle - ld_cycle <= 2):
+            cycle_count += 1
+        reg[rd] = reg[rn] & reg[rm]
         if('ands' in line):
             n_flag = True if(reg[rd] < 0) else False
-            z_flag = True if(reg[rd] == 0) else False 
-        return 
+            z_flag = True if(reg[rd] == 0) else False
+            flag_cycle = current_cycle
+        last_dst = rd
+        return
     #orr{s} rd, rn, imm
     if(re.match('orrs? {},{},{}$'.format(rg,rg,num),line)):
         rd = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
+            cycle_count += (current_cycle - ld_cycle)
         imm = int(re.findall(num,line)[-1],0)
         reg[rd] = reg[rn] | imm
         if('orrs' in line):
             n_flag = True if(reg[rd] < 0) else False
-            z_flag = True if(reg[rd] == 0) else False    
-        return 
+            z_flag = True if(reg[rd] == 0) else False
+            flag_cycle = current_cycle
+        last_dst = rd
+        return
     #orr{s} rd, rn, rm
     if(re.match('orrs? {},{},{}$'.format(rg,rg,rg),line)):
         rd = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
         rm = re.findall(rg,line)[2]
+        if (ld_dst == rn or ld_dst == rm) and (current_cycle - ld_cycle <= 2):
+            cycle_count += 1
         reg[rd] = reg[rn] | reg[rm]
         if('orrs' in line):
             n_flag = True if(reg[rd] < 0) else False
-            z_flag = True if(reg[rd] == 0) else False    
-        return 
+            z_flag = True if(reg[rd] == 0) else False
+            flag_cycle = current_cycle
+        last_dst = rd
+        return
     #eor{s} rd, rn, imm
     if(re.match('eors? {},{},{}$'.format(rg,rg,num),line)):
         rd = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
+        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
+            cycle_count += (current_cycle - ld_cycle)
         imm = int(re.findall(num,line)[-1],0)
         reg[rd] = reg[rn] ^ imm
         if('eors' in line):
             n_flag = True if(reg[rd] < 0) else False
             z_flag = True if(reg[rd] == 0) else False
-        return 
+            flag_cycle = current_cycle
+        last_dst = rd
+        return
     #eor{s} rd, rn, rm
     if(re.match('eors? {},{},{}$'.format(rg,rg,rg),line)):
         rd = re.findall(rg,line)[0]
         rn = re.findall(rg,line)[1]
         rm = re.findall(rg,line)[2]
+        if (ld_dst == rn or ld_dst == rm) and (current_cycle - ld_cycle <= 2):
+            cycle_count += 1
         reg[rd] = reg[rn] ^ reg[rm]
         if('eors' in line):
             n_flag = True if(reg[rd] < 0) else False
             z_flag = True if(reg[rd] == 0) else False
+            flag_cycle = current_cycle
+        last_dst = rd
         return
     '''
     branch instructions
@@ -1292,17 +1504,29 @@ def execute(line:str):
     if(re.match('cbnz {},{}$'.format(rg,lab),line)):
         if(len(re.findall(rg,line)) != 1): raise ValueError("cbnz takes one register")
         rn = re.findall(rg,line)[0]
+        if last_dst == rn:
+            cycle_count += 1
+        elif ld_dst == rn and (current_cycle - ld_cycle <= 2):
+            cycle_count += 3 - (current_cycle - ld_cycle)
         #last match is the label
         label = re.findall(lab,line)[-1]
-        if(reg[rn] != 0):pc = asm.index(label+':') 
+        if(reg[rn] != 0):
+            pc = asm.index(label+':')
+            cycle_count += 1
         return
     #cbz rn, <label>
     if(re.match('cbz {},{}$'.format(rg,lab),line)):
         if(len(re.findall(rg,line)) != 1): raise ValueError("cbz takes one register")
         rn = re.findall(rg,line)[0]
+        if last_dst == rn:
+            cycle_count += 1
+        elif ld_dst == rn and (current_cycle - ld_cycle <= 2):
+            cycle_count += 3 - (current_cycle - ld_cycle)
         #last match is the label
         label = re.findall(lab,line)[-1]
-        if(reg[rn] == 0):pc = asm.index(label+':') 
+        if(reg[rn] == 0):
+            pc = asm.index(label+':')
+            cycle_count += 1
         return
     #b <label>
     if(re.match('b {}$'.format(lab),line)):
@@ -1310,62 +1534,93 @@ def execute(line:str):
         #last match is the label
         label = re.findall(lab,line)[-1]
         pc = asm.index(label+':')
+        cycle_count += 1
         return
     #b.lt <label>
     if(re.match('b\.?lt {}$'.format(lab),line)):
         if(len(re.findall(rg,line)) != 0): raise ValueError("blt takes no registers")
         #last match is the label
         label = re.findall(lab,line)[-1]
-        if(n_flag): pc=asm.index(label+':')
+        if (current_cycle - flag_cycle <= 1):
+            cycle_count += 1
+        if(n_flag):
+            pc=asm.index(label+':')
+            cycle_count += 1
         return
     #b.le <label>
     if(re.match('b\.?le {}$'.format(lab),line)):
         if(len(re.findall(rg,line)) != 0): raise ValueError("ble takes no registers")
         #last match is the label
         label = re.findall(lab,line)[-1]
-        if(n_flag or z_flag): pc=asm.index(label+':')
+        if (current_cycle - flag_cycle <= 1):
+            cycle_count += 1
+        if(n_flag or z_flag):
+            pc=asm.index(label+':')
+            cycle_count += 1
         return
     #b.gt <label>
     if(re.match('b\.?gt {}$'.format(lab),line)):
         if(len(re.findall(rg,line)) != 0): raise ValueError("bgt takes no registers")
         #last match is the label
         label = re.findall(lab,line)[-1]
-        if(not z_flag and not n_flag): pc=asm.index(label+':')
+        if (current_cycle - flag_cycle <= 1):
+            cycle_count += 1
+        if(not z_flag and not n_flag):
+            pc=asm.index(label+':')
+            cycle_count += 1
         return
     #b.ge <label>
     if(re.match('b\.?ge {}$'.format(lab),line)):
         if(len(re.findall(rg,line)) != 0): raise ValueError("bge takes no registers")
         #last match is the label
         label = re.findall(lab,line)[-1]
-        if(not n_flag): pc=asm.index(label+':')
+        if (current_cycle - flag_cycle <= 1):
+            cycle_count += 1
+        if(not n_flag):
+            pc=asm.index(label+':')
+            cycle_count += 1
         return
     #b.eq <label>
     if(re.match('b\.?eq {}$'.format(lab),line)):
         if(len(re.findall(rg,line)) != 0): raise ValueError("beq takes no registers")
         #last match is the label
         label = re.findall(lab,line)[-1]
-        if(z_flag): pc=asm.index(label+':')
+        if (current_cycle - flag_cycle <= 1):
+            cycle_count += 1
+        if(z_flag):
+            pc=asm.index(label+':')
+            cycle_count += 1
         return
     #b.ne <label>
     if(re.match('b\.?ne {}$'.format(lab),line)):
         if(len(re.findall(rg,line)) != 0): raise ValueError("bne takes no registers")
         #last match is the label
         label = re.findall(lab,line)[-1]
-        if(not z_flag): pc=asm.index(label+':')
+        if (current_cycle - flag_cycle <= 1):
+            cycle_count += 1
+        if(not z_flag):
+            pc=asm.index(label+':')
+            cycle_count += 1
         return
     #b.mi <label>
     if(re.match('b\.?mi {}$'.format(lab),line)):
         if(len(re.findall(rg,line)) != 0): raise ValueError("bmi takes no registers")
         #last match is the label
         label = re.findall(lab,line)[-1]
-        if(n_flag): pc=asm.index(label+':')
+        if(n_flag):
+            pc=asm.index(label+':')
+            cycle_count += 1
         return
     #b.pl <label>
     if(re.match('b\.?pl {}$'.format(lab),line)):
         if(len(re.findall(rg,line)) != 0): raise ValueError("bpl takes no registers")
         #last match is the label
         label = re.findall(lab,line)[-1]
-        if(not n_flag or z_flag): pc=asm.index(label+':')
+        if (current_cycle - flag_cycle <= 1):
+            cycle_count += 1
+        if(not n_flag or z_flag):
+            pc=asm.index(label+':')
+            cycle_count += 1
         return
     #bl <label>
     #bl can branch to a local assembly procedure or to an externally defined
@@ -1374,6 +1629,8 @@ def execute(line:str):
         if(len(re.findall(rg,line)) != 0): raise ValueError("bl takes no registers")
         #last match is the label
         label = re.findall(lab,line)[-1] + ':'
+        if (current_cycle - flag_cycle <= 1):
+            cycle_count += 1
         reg['lr'] = pc
         #label_hit_counts must be updated here to count procedure calls
         if(label in label_hit_counts.keys()):
@@ -1383,6 +1640,7 @@ def execute(line:str):
             linked_labels[label]()
         else:
             pc=asm.index(label)
+        cycle_count += 1
         return
     #br lr
     if(re.match('br lr$',line)):
@@ -1390,6 +1648,7 @@ def execute(line:str):
         if(addr not in range(0,len(asm))):
             raise ValueError("ret: address in LR ({}) out of range".format(addr))
         pc = addr
+        cycle_count += 1
         return
     '''
     system call handler
@@ -1409,7 +1668,7 @@ def execute(line:str):
             output = bytes(mem[addr:addr+length]).decode('ascii')
             #if the user wants to print a newline they have to include
             #it in their string
-            print(output, end='') 
+            print(output, end='')
         #read
         elif(syscall==63):
             length = reg['x2']
@@ -1433,7 +1692,7 @@ def execute(line:str):
                 brk = new_brk
                 reg['x0'] = brk
                 mem = mem[:original_break]
-            #adjust brk  
+            #adjust brk
             else:
                 #round up to the nearest page boundary of 4K bytes
                 break_size = new_brk - original_break
@@ -1459,7 +1718,7 @@ def execute(line:str):
             raise ValueError("Unsupported system call: {} ".format(syscall))
         return
     raise ValueError("Unsupported instruction or syntax error: "+line)
-    
+
 
 '''
 Takes a variable declared in the data or bss section
@@ -1539,7 +1798,7 @@ def getdata(variable:str):
             print(variable+': variable not found')
     else:
         return [sym_table[variable]]
-        
+
 
 '''
 Procedure to check that predefined rules about the code 
@@ -1559,7 +1818,7 @@ def check_static_rules():
     global forbid_recursion, require_recursion, check_dead_code, label_regex
     #label regex
     lab = label_regex
-    
+
     #Make sure code has been detected
     if(not asm):
         raise ValueError("no code detected (remember to include a _start: or main: label)")
@@ -1568,22 +1827,22 @@ def check_static_rules():
     mnemonics = [i.split(" ")[0] for i in asm if " " in i]
     forbid = set(mnemonics).intersection(forbidden_instructions)
     if(forbid): raise ValueError("Use of {} disallowed".format(forbid))
-    
+
     #verify that labels have not be redeclared
     labels = [l for l in asm if(re.match('{}:'.format(lab),l))]
     if(len(labels)>len(set(labels))):
-        raise ValueError("You can't declare the same label more than once")    
-    
-    
+        raise ValueError("You can't declare the same label more than once")
+
+
     #check that all branch instructions call existing labels
     for instr in asm:
         if (re.match('br lr$', instr)):
             continue
         if(re.match('c?b(.*?)',instr)):
-            label = re.findall(lab,instr)[-1] + ":" 
+            label = re.findall(lab,instr)[-1] + ":"
             if(label not in asm and label not in linked_labels):
-                raise ValueError(instr + " is calling a nonexistent label")      
-                
+                raise ValueError(instr + " is calling a nonexistent label")
+
     #To check for looping:
     #--match any branch instruction except bl
     #--if its label occurs earlier in the instruction
@@ -1599,7 +1858,7 @@ def check_static_rules():
                     looped = True
         if(looped):
              raise ValueError("you cannot loop")
-    
+
     if(check_dead_code):
         #Check for dead code after ret or b instruction
         #The only instr that should come after a ret or b is a label
@@ -1625,8 +1884,8 @@ def run():
     while pc < len(asm):
         line=asm[pc]
         #This checks for recursion by determining if the current pc
-        #is saved in the link register at the time of a bl instr. If so, 
-        #this is the 2nd time this bl instr has been reached. 
+        #is saved in the link register at the time of a bl instr. If so,
+        #this is the 2nd time this bl instr has been reached.
         #Will not detect a recursive procedure if termination condition
         #is immediately met.
         if(re.match('bl {}'.format(label_regex),line)):
@@ -1634,20 +1893,20 @@ def run():
                 #last match is the label
                 label = re.findall(label_regex,line)[-1]
                 recursed_labels.add(label)
-        
-        #check for stack errors    
+
+        #check for stack errors
         if(reg['sp'] < 0):
             raise ValueError("stack overflow")
         if(reg['sp'] > STACK_SIZE):
             raise ValueError("stack underflow (make sure to allocate space)")
         if((reg['sp'] + 1)% 16 != 0):
             raise ValueError("Alignment error: sp must be a multiple of 16")
-        
+
         #if a label in encountered, inc pc and skip
         #also update label_hit_counts
         if(re.match(label_regex+':',line)):
             pc+=1;label_hit_counts[line]+=1
-            continue     
+            continue
         execute(line)
         reg['xzr'] = 0
         pc+=1
@@ -1661,7 +1920,7 @@ def run():
     #of recursed_labels)
     if(recursed_labels and recursive_labels - recursed_labels):
         raise ValueError("recursive calls do not include required call to {}".format(recursive_labels))
-   
+
 '''
 Simple REPL for testing instructions. Limited to instructions that
 only affect registers (no memory access or jumps). Prints the flags
@@ -1680,18 +1939,21 @@ def repl():
             execute(instr)
             for r in set(re.findall(register_regex,instr)):
                 print("{}: {}".format(r,reg[r]))
-            print("Z: {} N: {}".format(n_flag,z_flag))   
+            print("Z: {} N: {}".format(n_flag,z_flag))
         except ValueError as e:
             print(e)
     return
 
-    
+
 '''
 A procedure to return the simulator to it's initial state
 '''
 def reset():
     global reg,z_flag,n_flag,pc
     global require_recursion,forbid_recursion,forbid_loops
+    global cycle_count, execute_count
+    global ld_cycle, ld_dst
+    global flag_cycle, last_dst
     forbidden_instructions.clear()
     require_recursion = False
     forbid_recursion = False
@@ -1702,6 +1964,12 @@ def reset():
     sym_table.clear()
     n_flag = False;z_flag = False
     pc = 0
+    cycle_count = 0
+    execute_count = 0
+    ld_cycle, ld_dst = -1, -1
+    flag_cycle = -1
+    last_dst = -1
+
 
 def run_blue_hen_hash():
     from blue_hen_hash import blue_hen_hash
@@ -1716,8 +1984,8 @@ def run_blue_hen_hash():
 
 
 linked_labels['blue_hen_hash:'] = run_blue_hen_hash
-    
-  
+
+
 def main():
     if(not sys.argv[1:]):
         repl()
@@ -1726,6 +1994,10 @@ def main():
         with open(_file,'r') as f:
             parse(f.readlines())
         run()
+
+    global cycle_count
+    print(f"Total Cycles: {cycle_count}")
+    print(f"Executed Instructions: {execute_count}")
     return reg['x0']
 if __name__ == "__main__":
     main()
