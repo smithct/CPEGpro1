@@ -51,43 +51,23 @@ Currently supported:
     rn      = first register operand
     rm      = second register operand
     imm     = immediate value (aka a number)
-    ldp     rt, rt2, [rn]
-    ldp     rt, rt2, [rn, imm]
-    ldp     rt, rt2, [rn, imm]! //pre index
-    ldp     rt, rt2, [rn], imm  //post index
-    stp     rt, rt2, [rn]
-    stp     rt, rt2, [rn, imm]
-    stp     rt, rt2, [rn, imm]! //pre index
-    stp     rt, rt2, [rn], imm  //post index
     ldurh   rt, [rn]
     ldurh   rt, [rn, imm]
-    ldurh   rt, [rn, imm]! //pre index
-    ldurh   rt  [rn], imm  //post index
     ldurb   rt, [rn]
     ldurb   rt, [rn, imm]
-    ldurb   rt, [rn, imm]! //pre index
-    ldurb   rt  [rn], imm  //post index
     ldur    rd, =<var>
     ldur    rt, [rn]
     ldur    rt, [rn, imm]
     ldur    rt, [rn, rm]
-    ldur    rt, [rn, imm]! //pre index
-    ldur    rt, [rn], imm  //post index
     sturh   rt, [rn]
     sturh   rt, [rn, imm]
     sturh   rt, [rn, rm]
-    sturh   rt, [rn, imm]! //pre index
-    sturb   rt, [rn], imm  //post index
     sturb   rt, [rn]
     sturb   rt, [rn, imm]
     sturb   rt, [rn, rm]
-    sturb   rt, [rn, imm]! //pre index
-    sturb   rt, [rn], imm  //post index
     stur    rt, [rn]
     stur    rt, [rn, imm]
     stur    rt, [rn, rm]
-    stur    rt, [rn, imm]! //pre index
-    stur    rt, [rn], imm  //post index
     mov     rd, imm
     mov     rd, rn
     sub{s}  rd, rn, imm
@@ -99,8 +79,6 @@ Currently supported:
     udiv    rd, rn, rm
     sdiv    rd, rn, rm
     mul     rd, rn, rm
-    msub    rd, rn, rm, ra
-    madd    rd, rn, rm, ra
     and{s}  rd, rn, imm
     and{s}  rd, rn, rm
     orr{s}  rd, rn, imm
@@ -539,163 +517,7 @@ def execute(line:str):
     #all labels in program (better feedback for typos/malformed branches
     #[:-1] is so that the colon in the label is not included
     labels = [l[:-1] for l in asm if(re.match('{}:'.format(lab),l))]
-    '''
-    ldp instructions
-    '''
-    #ldp rt, rt2, [rn]
-    #dollar sign so it doesn't match post index
-    if(re.match('ldp {},{},\[{}\]$'.format(rg,rg,rg),line)):
-        rt = re.findall(rg,line)[0]
-        rt2 = re.findall(rg,line)[1]
-        rn = re.findall(rg,line)[2]
-        if ld_dst == rn and (current_cycle - ld_cycle) <= 2:
-            cycle_count += (current_cycle - ld_cycle)
-        addr = reg[rn]
-        #check for out of bounds mem access
-        if(addr < reg['sp'] or addr > len(mem) - 16):
-            raise ValueError("out of bounds memory access: {}".format(line))
-        reg[rt] = int.from_bytes(bytes(mem[addr:addr+8]),'little')
-        addr += 8
-        reg[rt2] = int.from_bytes(bytes(mem[addr:addr+8]),'little')
-        ld_cycle = current_cycle
-        ld_dst = rt
-        return
-    #ldp rt, rt2, [rn, imm]
-    #dollar sign so it doesn't match pre index
-    if(re.match('ldp {},{},\[{},{}\]$'.format(rg,rg,rg,num),line)):
-        rt = re.findall(rg,line)[0]
-        rt2 = re.findall(rg,line)[1]
-        rn = re.findall(rg,line)[2]
-        if ld_dst == rn and (current_cycle - ld_cycle) <= 2:
-            cycle_count += (current_cycle - ld_cycle)
-        imm = int(re.findall(num,line)[-1],0)
-        addr = reg[rn] + imm
-        #check for out of bounds mem access
-        if(addr < reg['sp'] or addr > len(mem) - 16):
-            raise ValueError("out of bounds memory access: {}".format(line))
-        reg[rt] = int.from_bytes(bytes(mem[addr:addr+8]),'little')
-        addr += 8
-        reg[rt2] = int.from_bytes(bytes(mem[addr:addr+8]),'little')
-        ld_cycle = current_cycle
-        ld_dst = rt
-        return
 
-    #ldp rt, rt2, [rn, imm]! //pre index
-    if(re.match('ldp {},{},\[{},{}\]!$'.format(rg,rg,rg,num),line)):
-        rt = re.findall(rg,line)[0]
-        rt2 = re.findall(rg,line)[1]
-        rn = re.findall(rg,line)[2]
-        if ld_dst == rn and (current_cycle - ld_cycle) <= 2:
-            cycle_count += (current_cycle - ld_cycle)
-        imm = int(re.findall(num,line)[-1],0)
-        reg[rn] += imm
-        addr = reg[rn]
-        #check for out of bounds mem access
-        if(addr < reg['sp'] or addr > len(mem) - 16):
-            raise ValueError("out of bounds memory access: {}".format(line))
-        reg[rt] = int.from_bytes(bytes(mem[addr:addr+8]),'little')
-        addr += 8
-        reg[rt2] = int.from_bytes(bytes(mem[addr:addr+8]),'little')
-        ld_cycle = current_cycle
-        ld_dst = rt
-        return
-    #ldp rt, rt2, [rn], imm //post index
-    if(re.match('ldp {},{},\[{}\],{}$'.format(rg,rg,rg,num),line)):
-        rt = re.findall(rg,line)[0]
-        rt2 = re.findall(rg,line)[1]
-        rn = re.findall(rg,line)[2]
-        if ld_dst == rn and (current_cycle - ld_cycle) <= 2:
-            cycle_count += (current_cycle - ld_cycle)
-        imm = int(re.findall(num,line)[-1],0)
-        addr = reg[rn]
-        #check for out of bounds mem access
-        if(addr < reg['sp'] or addr > len(mem) - 16):
-            raise ValueError("out of bounds memory access: {}".format(line))
-        reg[rt] = int.from_bytes(bytes(mem[addr:addr+8]),'little')
-        addr += 8
-        reg[rt2] = int.from_bytes(bytes(mem[addr:addr+8]),'little')
-        reg[rn] += imm
-        #check for out of bounds pointer
-        if(reg[rn] > len(mem) and reg[rn] < reg['sp']):
-            raise ValueError("register {} points to out of bounds memory".format(reg[rn]))
-        ld_cycle = current_cycle
-        ld_dst = rt
-        return
-
-    '''
-    stp instructions
-    '''
-    #stp rt, rt2, [rn]
-    #dollar sign so it doesn't match post index
-    if(re.match('stp {},{},\[{}\]$'.format(rg,rg,rg),line)):
-        rt = re.findall(rg,line)[0]
-        rt2 = re.findall(rg,line)[1]
-        rn = re.findall(rg,line)[2]
-        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
-            cycle_count += (current_cycle - ld_cycle)
-        addr = reg[rn]
-        #check for out of bounds mem access
-        if(addr < reg['sp'] or addr > len(mem) - 16):
-            raise ValueError("out of bounds memory access: {}".format(line))
-        mem[addr:addr+8] = list(int.to_bytes((reg[rt]),8,'little'))
-        addr += 8
-        mem[addr:addr+8] = list(int.to_bytes((reg[rt2]),8,'little'))
-        return
-
-    #stp rt, rt2, [rn, imm]
-    #dollar sign so it doesn't match pre index
-    if(re.match('stp {},{},\[{},{}\]$'.format(rg,rg,rg,num),line)):
-        rt = re.findall(rg,line)[0]
-        rt2 = re.findall(rg,line)[1]
-        rn = re.findall(rg,line)[2]
-        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
-            cycle_count += (current_cycle - ld_cycle)
-        imm = int(re.findall(num,line)[-1],0)
-        addr = reg[rn] + imm
-        #check for out of bounds mem access
-        if(addr < reg['sp'] or addr > len(mem) - 16):
-            raise ValueError("out of bounds memory access: {}".format(line))
-        mem[addr:addr+8] = list(int.to_bytes((reg[rt]),8,'little'))
-        addr += 8
-        mem[addr:addr+8] = list(int.to_bytes((reg[rt2]),8,'little'))
-        return
-    #stp rt, rt2, [rn, imm]! //pre index
-    if(re.match('stp {},{},\[{},{}\]!$'.format(rg,rg,rg,num),line)):
-        rt = re.findall(rg,line)[0]
-        rt2 = re.findall(rg,line)[1]
-        rn = re.findall(rg,line)[2]
-        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
-            cycle_count += (current_cycle - ld_cycle)
-        imm = int(re.findall(num,line)[-1],0)
-        reg[rn] += imm
-        addr = reg[rn]
-        #check for out of bounds mem access
-        if(addr < reg['sp'] or addr > len(mem) - 16):
-            raise ValueError("out of bounds memory access: {}".format(line))
-        mem[addr:addr+8] = list(int.to_bytes((reg[rt]),8,'little'))
-        addr += 8
-        mem[addr:addr+8] = list(int.to_bytes((reg[rt2]),8,'little'))
-        return
-    #stp rt, rt2, [rn], imm //post index
-    if(re.match('stp {},{},\[{}\],{}$'.format(rg,rg,rg,num),line)):
-        rt = re.findall(rg,line)[0]
-        rt2 = re.findall(rg,line)[1]
-        rn = re.findall(rg,line)[2]
-        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
-            cycle_count += (current_cycle - ld_cycle)
-        imm = int(re.findall(num,line)[-1],0)
-        addr = reg[rn]
-        #check for out of bounds mem access
-        if(addr < reg['sp'] or addr > len(mem) - 16):
-            raise ValueError("out of bounds memory access: {}".format(line))
-        mem[addr:addr+8] = list(int.to_bytes((reg[rt]),8,'little'))
-        addr += 8
-        mem[addr:addr+8] = list(int.to_bytes((reg[rt2]),8,'little'))
-        reg[rn] += imm
-        #check for out of bounds pointer
-        if(reg[rn] > len(mem) and reg[rn] < reg['sp']):
-            raise ValueError("register {} points to out of bounds memory".format(reg[rn]))
-        return
     '''ldurh instructions'''
     # ldurh rt, [rn]
     # dollar sign so it doesn't match post index
@@ -747,44 +569,8 @@ def execute(line:str):
         ld_cycle = current_cycle
         ld_dst = rt
         return
-    # ldurh rt, [rn, imm]! //pre index
-    if (re.match('ldurh {},\[{},{}\]!'.format(rg, rg, num), line)):
-        rt = re.findall(rg, line)[0]
-        rn = re.findall(rg, line)[1]
-        if ld_dst == rn and (current_cycle - ld_cycle) <= 2:
-            cycle_count += 1
-        imm = int(re.findall(num, line)[-1], 0)
-        reg[rn] += imm
-        addr = reg[rn]
-        # check for out of bounds mem access
-        if (addr < reg['sp'] or addr > len(mem) - 2):
-            raise ValueError("out of bounds memory access: {}".format(line))
-        # load 2 byte starting at addr and convert to int
-        reg[rt] = int.from_bytes(bytes(mem[addr:addr + 2]), 'little')
-        ld_cycle = current_cycle
-        ld_dst = rt
-        return
-    # ldurh rt, [rn], imm //post index
-    if (re.match('ldurh {},\[{}\],{}$'.format(rg, rg, num), line)):
-        rt = re.findall(rg, line)[0]
-        rn = re.findall(rg, line)[1]
-        if ld_dst == rn and (current_cycle - ld_cycle) <= 2:
-            cycle_count += 1
-        imm = int(re.findall(num, line)[-1], 0)
-        addr = reg[rn]
-        # check for out of bounds mem access
-        if (addr < reg['sp'] or addr > len(mem) - 2):
-            raise ValueError("out of bounds memory access: {}".format(line))
-        # load 2 byte starting at addr and convert to int
-        reg[rt] = int.from_bytes(bytes(mem[addr:addr + 2]), 'little')
-        reg[rn] += imm
-        # check for out of bounds pointer
-        if (reg[rn] > len(mem) and reg[rn] < reg['sp']):
-            raise ValueError("register {} points to out of bounds memory".format(reg[rn]))
-        ld_cycle = current_cycle
-        ld_dst = rt
-        return
-    '''ldurbh instructions'''
+
+    '''ldurb instructions'''
     #ldurb rt, [rn]
     #dollar sign so it doesn't match post index
     if(re.match('ldurb {},\[{}\]$'.format(rg,rg),line)):
@@ -835,42 +621,7 @@ def execute(line:str):
         ld_cycle = current_cycle
         ld_dst = rt
         return
-    #ldurb rt, [rn, imm]! //pre index
-    if(re.match('ldurb {},\[{},{}\]!'.format(rg,rg,num),line)):
-        rt = re.findall(rg,line)[0]
-        rn = re.findall(rg,line)[1]
-        if ld_dst == rn and (current_cycle - ld_cycle) <= 2:
-            cycle_count += 1
-        imm = int(re.findall(num,line)[-1],0)
-        reg[rn] += imm
-        addr = reg[rn]
-        #check for out of bounds mem access
-        if(addr < reg['sp'] or addr > len(mem) - 1):
-            raise ValueError("out of bounds memory access: {}".format(line))
-        #load 1 byte starting at addr and convert to int
-        reg[rt] = int.from_bytes(bytes(mem[addr:addr+1]),'little')
-        ld_cycle = current_cycle
-        return
-    #ldurb rt, [rn], imm //post index
-    if(re.match('ldurb {},\[{}\],{}$'.format(rg,rg,num),line)):
-        rt = re.findall(rg,line)[0]
-        rn = re.findall(rg,line)[1]
-        if ld_dst == rn and (current_cycle - ld_cycle) <= 2:
-            cycle_count += 1
-        imm = int(re.findall(num,line)[-1],0)
-        addr = reg[rn]
-        #check for out of bounds mem access
-        if(addr < reg['sp'] or addr > len(mem) - 1):
-            raise ValueError("out of bounds memory access: {}".format(line))
-        #load 1 byte starting at addr and convert to int
-        reg[rt] = int.from_bytes(bytes(mem[addr:addr+1]),'little')
-        reg[rn] += imm
-        #check for out of bounds pointer
-        if(reg[rn] > len(mem) and reg[rn] < reg['sp']):
-            raise ValueError("register {} points to out of bounds memory".format(reg[rn]))
-        ld_cycle = current_cycle
-        ld_dst = rt
-        return
+
     '''
     ldur instructions
     '''
@@ -932,43 +683,7 @@ def execute(line:str):
         ld_cycle = current_cycle
         ld_dst = rt
         return
-    #ldur rt, [rn, imm]! //pre index
-    if(re.match('ldur {},\[{},{}\]!'.format(rg,rg,num),line)):
-        rt = re.findall(rg,line)[0]
-        rn = re.findall(rg,line)[1]
-        if ld_dst == rn and (current_cycle - ld_cycle) <= 2:
-            cycle_count += 1
-        imm = int(re.findall(num,line)[-1],0)
-        reg[rn] += imm
-        addr = reg[rn]
-        #check for out of bounds mem access
-        if(addr < reg['sp'] or addr > len(mem) - 8):
-            raise ValueError("out of bounds memory access: {}".format(line))
-        #load 8 bytes starting at addr and convert to int
-        reg[rt] = int.from_bytes(bytes(mem[addr:addr+8]),'little')
-        ld_cycle = current_cycle
-        ld_dst = rt
-        return
-    #ldur rt, [rn], imm //post index
-    if(re.match('ldur {},\[{}\],{}$'.format(rg,rg,num),line)):
-        rt = re.findall(rg,line)[0]
-        rn = re.findall(rg,line)[1]
-        if ld_dst == rn and (current_cycle - ld_cycle) <= 2:
-            cycle_count += 1
-        imm = int(re.findall(num,line)[-1],0)
-        addr = reg[rn]
-        #check for out of bounds mem access
-        if(addr < reg['sp'] or addr > len(mem) - 8):
-            raise ValueError("out of bounds memory access: {}".format(line))
-        #load 8 bytes starting at addr and convert to int
-        reg[rt] = int.from_bytes(bytes(mem[addr:addr+8]),'little')
-        reg[rn] += imm
-        #check for out of bounds pointer
-        if(reg[rn] > len(mem) and reg[rn] < reg['sp']):
-            raise ValueError("register {} points to out of bounds memory".format(reg[rn]))
-        ld_cycle = current_cycle
-        ld_dst = rt
-        return
+
     '''sturh instruction'''
     # sturh rt, [rn]
     # dollar sign so it doesn't match post index
@@ -1010,37 +725,6 @@ def execute(line:str):
         if (addr < reg['sp'] or addr > len(mem) - 2):
             raise ValueError("out of bounds memory access: {}".format(line))
         mem[addr:addr + 2] = list(int.to_bytes((reg[rt]), 2, 'little'))
-        return
-    # sturh rt, [rn, imm]! //pre index
-    if (re.match('sturh {},\[{},{}\]!$'.format(rg, rg, num), line)):
-        rt = re.findall(rg, line)[0]
-        rn = re.findall(rg, line)[1]
-        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
-            cycle_count += (current_cycle - ld_cycle)
-        imm = int(re.findall(num, line)[-1], 0)
-        reg[rn] += imm
-        addr = reg[rn]
-        # check for out of bounds mem access
-        if (addr < reg['sp'] or addr > len(mem) - 2):
-            raise ValueError("out of bounds memory access: {}".format(line))
-        mem[addr:addr + 2] = list(int.to_bytes((reg[rt]), 2, 'little'))
-        return
-    # sturh rt, [rn], imm //post index
-    if (re.match('sturh {},\[{}\],{}$'.format(rg, rg, num), line)):
-        rt = re.findall(rg, line)[0]
-        rn = re.findall(rg, line)[1]
-        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
-            cycle_count += (current_cycle - ld_cycle)
-        imm = int(re.findall(num, line)[-1], 0)
-        addr = reg[rn]
-        # check for out of bounds mem access
-        if (addr < reg['sp'] or addr > len(mem) - 2):
-            raise ValueError("out of bounds memory access: {}".format(line))
-        mem[addr:addr + 2] = list(int.to_bytes((reg[rt]), 2, 'little'))
-        reg[rn] += imm
-        # check for out of bounds pointer
-        if (reg[rn] > len(mem) and reg[rn] < reg['sp']):
-            raise ValueError("register {} points to out of bounds memory".format(reg[rn]))
         return
     '''sturb instruction'''
     #sturb rt, [rn]
@@ -1084,37 +768,6 @@ def execute(line:str):
             raise ValueError("out of bounds memory access: {}".format(line))
         mem[addr:addr+1] = list(int.to_bytes((reg[rt]),1,'little'))
         return
-    #sturb rt, [rn, imm]! //pre index
-    if(re.match('sturb {},\[{},{}\]!$'.format(rg,rg,num),line)):
-        rt = re.findall(rg,line)[0]
-        rn = re.findall(rg,line)[1]
-        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
-            cycle_count += (current_cycle - ld_cycle)
-        imm = int(re.findall(num,line)[-1],0)
-        reg[rn] += imm
-        addr = reg[rn]
-        #check for out of bounds mem access
-        if(addr < reg['sp'] or addr > len(mem) - 1):
-            raise ValueError("out of bounds memory access: {}".format(line))
-        mem[addr:addr+1] = list(int.to_bytes((reg[rt]),1,'little'))
-        return
-    #sturb rt, [rn], imm //post index
-    if(re.match('sturb {},\[{}\],{}$'.format(rg,rg,num),line)):
-        rt = re.findall(rg,line)[0]
-        rn = re.findall(rg,line)[1]
-        imm = int(re.findall(num,line)[-1],0)
-        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
-            cycle_count += (current_cycle - ld_cycle)
-        addr = reg[rn]
-        #check for out of bounds mem access
-        if(addr < reg['sp'] or addr > len(mem) - 1):
-            raise ValueError("out of bounds memory access: {}".format(line))
-        mem[addr:addr+1] = list(int.to_bytes((reg[rt]),1,'little'))
-        reg[rn] += imm
-        #check for out of bounds pointer
-        if(reg[rn] > len(mem) and reg[rn] < reg['sp']):
-            raise ValueError("register {} points to out of bounds memory".format(reg[rn]))
-        return
     '''
     stur instructions
     '''
@@ -1156,37 +809,6 @@ def execute(line:str):
         if(addr < reg['sp'] or addr > len(mem) - 8):
             raise ValueError("out of bounds memory access: {}".format(line))
         mem[addr:addr+8] = list(int.to_bytes((reg[rt]),8,'little'))
-        return
-    #stur rt, [rn, imm]! //pre index
-    if(re.match('stur {},\[{},{}\]!$'.format(rg,rg,num),line)):
-        rt = re.findall(rg,line)[0]
-        rn = re.findall(rg,line)[1]
-        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
-            cycle_count += (current_cycle - ld_cycle)
-        imm = int(re.findall(num,line)[-1],0)
-        reg[rn] += imm
-        addr = reg[rn]
-        #check for out of bounds mem access
-        if(addr < reg['sp'] or addr > len(mem) - 8):
-            raise ValueError("out of bounds memory access: {}".format(line))
-        mem[addr:addr+8] = list(int.to_bytes((reg[rt]),8,'little'))
-        return
-    #stur rt, [rn], imm //post index
-    if(re.match('stur {},\[{}\],{}$'.format(rg,rg,num),line)):
-        rt = re.findall(rg,line)[0]
-        rn = re.findall(rg,line)[1]
-        if ld_dst == rn and (current_cycle - ld_cycle <= 2):
-            cycle_count += (current_cycle - ld_cycle)
-        imm = int(re.findall(num,line)[-1],0)
-        addr = reg[rn]
-        #check for out of bounds mem access
-        if(addr < reg['sp'] or addr > len(mem) - 8):
-            raise ValueError("out of bounds memory access: {}".format(line))
-        mem[addr:addr+8] = list(int.to_bytes((reg[rt]),8,'little'))
-        reg[rn] += imm
-        #check for out of bounds pointer
-        if(reg[rn] > len(mem) and reg[rn] < reg['sp']):
-            raise ValueError("register {} points to out of bounds memory".format(reg[rn]))
         return
     '''
     mov instructions
@@ -1359,28 +981,6 @@ def execute(line:str):
             cycle_count += 1
         #IMPORTANT: use integer division, not floating point
         reg[rd] = reg[rn] // reg[rm]
-        last_dst = rd
-        return
-    #msub rd, rn, rm, ra
-    if(re.match('msub {},{},{},{}$'.format(rg,rg,rg,rg),line)):
-        rd = re.findall(rg,line)[0]
-        rn = re.findall(rg,line)[1]
-        rm = re.findall(rg,line)[2]
-        ra = re.findall(rg,line)[3]
-        if (ld_dst == rn or ld_dst == rm or ld_dst == ra) and (current_cycle - ld_cycle <= 2):
-            cycle_count += 1
-        reg[rd] = reg[ra] - reg[rn] * reg[rm]
-        last_dst = rd
-        return
-    #madd rd, rn, rm, ra
-    if(re.match('madd {},{},{},{}$'.format(rg,rg,rg,rg),line)):
-        rd = re.findall(rg,line)[0]
-        rn = re.findall(rg,line)[1]
-        rm = re.findall(rg,line)[2]
-        ra = re.findall(rg,line)[3]
-        if (ld_dst == rn or ld_dst == rm or ld_dst == ra) and (current_cycle - ld_cycle <= 2):
-            cycle_count += 1
-        reg[rd] = reg[ra] + reg[rn] * reg[rm]
         last_dst = rd
         return
     '''

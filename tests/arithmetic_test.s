@@ -28,8 +28,6 @@ main:
 
     mov x2,2
     mov x3,3
-    msub x0,x2,x3,x0
-    madd x0,x2,x3,x0
 
     cmp x0,x1
     b.eq correct

@@ -30,26 +30,14 @@ These are the current supported instructions. The instruction formats comes from
 *rn     = first register operand* \
 *rm     = second register operand* \
 *imm    = immediate value (aka a number)* 
-   
-    ldp     rt, rt2, [rn]
-    ldp     rt, rt2, [rn, imm]
-    ldp     rt, rt2, [rn, imm]! //pre index
-    ldp     rt, rt2, [rn], imm  //post index
-    stp     rt, rt2, [rn]
-    stp     rt, rt2, [rn, imm]
-    stp     rt, rt2, [rn, imm]! //pre index
-    stp     rt, rt2, [rn], imm  //post index
+
     ldur     rd, =<var>
     ldur     rt, [rn]
     ldur     rt, [rn, imm]
     ldur     rt, [rn, rm]
-    ldur     rt, [rn, imm]! //pre index
-    ldur     rt, [rn], imm  //post index
     str     rt, [rn]
     str     rt, [rn, imm]
     str     rt, [rn, rm]
-    str     rt, [rn, imm]! //pre index
-    str     rt, [rn], imm  //post index
     mov     rd, imm
     mov     rd, rn
     sub{s}  rd, rn, imm
@@ -61,8 +49,6 @@ These are the current supported instructions. The instruction formats comes from
     udiv    rd, rn, rm
     sdiv    rd, rn, rm
     mul     rd, rn, rm
-    msub    rd, rn, rm, ra
-    madd    rd, rn, rm, ra
     and{s}  rd, rn, imm
     and{s}  rd, rn, rm
     orr{s}  rd, rn, imm

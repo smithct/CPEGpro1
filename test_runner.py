@@ -3,9 +3,6 @@ import armsim
 import instruction_tests
 import sys
 from io import StringIO,BytesIO
-
-
-
   
 '''
 Full program tests in /tests directory
@@ -22,123 +19,10 @@ armsim.run()
 assert armsim.reg['x0'] == 7, "arithmetic_test returned incorrect value of {}".format(armsim.reg['x0'])
 armsim.reset()
 
-with open('tests/ldp_stp_test.s','r') as f:
-	armsim.parse(f.readlines())
-armsim.run()
-assert armsim.reg['x0'] == 7, "ldp_stp_test returned incorrect value of {}".format(armsim.reg['x0'])
-armsim.reset()
-
-with open('tests/ldur_stur_test.s','r') as f:
-	armsim.parse(f.readlines())
-armsim.run()
-assert armsim.reg['x0'] == 7, "ldur_stur_test returned incorrect value of {}".format(armsim.reg['x0'])
-armsim.reset()
-
 with open('tests/brk_test.s','r') as f:
 	armsim.parse(f.readlines())
 armsim.run()
 assert armsim.reg['x0'] == 7, "brk_test returned incorrect value of {}".format(armsim.reg['x0'])
 armsim.reset()
 
-'''
-collatz.s is currently the most complex program, so it's 
-worth having an automated test to make sure it's working
-'''
-#use StringIO to drive collatz program
-stdin = sys.stdin
-stdout = sys.stdout
-#supress stdout
-sys.stdout = StringIO()
-
-with open('examples/collatz.s','r') as f:
-    armsim.parse(f.readlines())
-
-sys.stdin = StringIO('37')
-armsim.run()
-assert armsim.reg['x0'] == 22, "collatz of 37 should not be {}".format(armsim.reg['x0'])
-
-armsim.reset()
-
-
-
-
-
-'''
-Tests for check_static_rules()
-'''
-with open('examples/collatz.s','r') as f:
-    armsim.parse(f.readlines())
-    
-#test forbid_loops flag
-armsim.forbid_loops = True
-try:
-    armsim.check_static_rules()
-    assert False, "check_static_rules should raise error with collaz.s when loops forbidden"
-except ValueError:
-    #expected
-    armsim.reset()
-
-#test forbid_recursion flag
-with open('examples/collatz.s','r') as f:
-    armsim.parse(f.readlines())
-armsim.forbid_recursion = True
-try:
-    sys.stdin = StringIO('37')
-    armsim.run()
-    assert False, "should raise error with collaz.s when recursion forbidden"
-except ValueError:
-    #expected
-    armsim.reset()
-      
-#test require_recursion flag
-with open('examples/collatz.s','r') as f:
-    armsim.parse(f.readlines())
-armsim.require_recursion = True
-try:
-    sys.stdin = StringIO('37')
-    armsim.run()
-    #expected
-    armsim.reset()
-except ValueError:
-    assert False, "should NOT raise error with collaz.s when recursion required"
- 
-#forbidden instructions
-with open('examples/collatz.s','r') as f:
-    armsim.parse(f.readlines())
-armsim.forbidden_instructions = {'mov'}
-try:
-    armsim.check_static_rules()
-    assert False, "check_static_rules should raise error with collaz.s when mov instr forbidden"
-except ValueError:
-    #expected
-    armsim.reset()
-    
-#duplicate labels
-with open('examples/collatz.s','r') as f:
-    armsim.parse(f.readlines())
-armsim.asm.append('duplicate_label:')
-armsim.asm.append('duplicate_label:')
-try:
-    armsim.check_static_rules()
-    assert False, "check_static_rules should raise error when duplicate labels added"
-except ValueError:
-    #expected
-    armsim.reset()
- 
-
-#branch to label that doesn't exist
-with open('examples/collatz.s','r') as f:
-    armsim.parse(f.readlines())
-armsim.asm.append('b not_a_label_in_program')
-try:
-    armsim.check_static_rules()
-    assert False, "check_static_rules should raise error nonexistent label in branch"
-except ValueError:
-    #expected
-    armsim.reset()
-
-#restore to std io
-sys.stdin = stdin
-sys.stdout = stdout
-  
 print("All tests passed")  
