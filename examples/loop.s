@@ -1,82 +1,33 @@
-.text            
-.global _start
-
-    /********************
-     * Syscall format
-     * x8 - syscall number
-     * If there are args:
-     * x0 - first argument
-     * x1 - second argument
-     * x2 - third argument
-     * and so on
-     *********************/
-_start:
-main:
-    /**************************
-     * Program overview:
-     * Demonstration of a 
-     * simple loop construct.
-     * The loop will be used to 
-     * print a message 10 times
-     **************************/
-    
-
- /***************
-  * Declare a label .begin: that
-  * we will jump to. Labels can generally
-  * be used to jump anywhere in the program
-  * For example, let's use a jump to avoid
-  * this call to exit:
-  ***************/
-    b .begin
-
-    /********************
-     * Exit syscall
-     *********************/
-    mov x8, #93
-    svc 0
-    
- /***************
-  * Thanks to b .begin
-  * our program arrives here
-  * and avoids the premature
-  * exit
-  ****************/
-  
-.begin:
-    /******************
-     * Our counter will be
-     * kept in x4
-     ******************/
-     mov x4, #10
-.loop:
-    /********************
-     * Write syscall
-     *********************/ 
-    mov x0, #1
-    ldur x1, =message
-    ldur x2, =len
-    mov x8, 0x40
-    svc 0
-    /********************
-     * Decrement x4
-     *********************/
-    sub  x4, x4, 1
-    /********************
-     * Compare and Branch on Zero compares a given 
-     * register to zero. If the register does not equal
-     * zero, the jump is taken to the given label
-     *********************/    
-    cbnz x4, .loop
-    /********************
-     * Exit syscall
-     *********************/
-    mov x8, #93
-    svc 0  
+// Calculate the sum of numbers
 
 .data
-message: .asciz "hello world\n"
-len = . - message
- 
+numbers:    .byte -67, -114, -96, -54, -120, -128
+
+.text
+.global _start
+_start:
+    // Load base address of numbers
+    LDUR x0, =numbers
+    // i = 0
+    MOV X9, XZR
+    // sum = 0
+    MOV X10, XZR
+    // numbers_size = 6
+    MOV X11, #6
+    loop:
+        // if i >= 6 exit loop
+        CMP X9, X11
+        B.GE exit
+        // x8 = numbers[i]
+        LDURSB X8, [X0, X9]
+        // sum += x8
+        ADD X10, X10, X8
+        // increment i
+        ADD X9, X9, #1
+        B loop
+
+    // Exit syscall
+    MOV x8, #93
+    SVC 0  
 
 
