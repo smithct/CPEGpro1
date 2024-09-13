@@ -25,7 +25,7 @@ _start:
         // increment i
         ADD X9, X9, #1
         B loop
-
+    exit:
     // Exit syscall
     MOV x8, #93
     SVC 0  
